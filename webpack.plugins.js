@@ -1,0 +1,10 @@
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+
+module.exports = [
+  new ForkTsCheckerWebpackPlugin({
+    logger: 'webpack-infrastructure',
+    typescript: {
+      configFile: 'tsconfig.json',
+    },
+  }),
+];

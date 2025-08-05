@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+out/
+.webpack/
+dist/
+
+# Generated files
+*.d.ts
+package-lock.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Task Master files
+.taskmaster/
+
+# Temporary files
+*.tmp
+*.temp

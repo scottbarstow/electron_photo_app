@@ -1,0 +1,1069 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Electron Project with React and Node.js",
+        "description": "Initialize the project repository with Electron, React, and Node.js configuration for cross-platform desktop application development.",
+        "details": "1. Create a new project using electron-forge (v6.4.2+) with React template\n2. Configure webpack (v5.89.0+) for bundling\n3. Setup project structure with separate folders for main and renderer processes\n4. Configure ESLint (v8.53.0+) and Prettier (v3.1.0+) for code quality\n5. Setup TypeScript (v5.2.2+) for type safety\n6. Initialize package.json with required dependencies:\n   - electron: ^26.2.0\n   - react: ^18.2.0\n   - react-dom: ^18.2.0\n   - electron-store: ^8.1.0 (for persistent storage)\n7. Configure basic IPC communication between main and renderer processes\n8. Setup development scripts for hot reloading\n9. Create basic window management in main process\n10. Implement basic error handling and logging",
+        "testStrategy": "1. Verify project builds successfully\n2. Test application launches on both macOS and Windows\n3. Validate hot reloading works in development mode\n4. Ensure main and renderer processes can communicate via IPC\n5. Verify window creation, resizing, and closing functionality",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Electron Project with React Template",
+            "description": "Create a new project using electron-forge with React template and set up the basic project structure.",
+            "dependencies": [],
+            "details": "Create a new project using electron-forge v6.4.2+ with the React template. Initialize package.json with core dependencies including electron ^26.2.0, react ^18.2.0, react-dom ^18.2.0, and electron-store ^8.1.0. Set up the project structure with separate folders for main and renderer processes.\n<info added on 2025-08-04T22:42:53.700Z>\nSuccessfully initialized Electron project with React template. Created TypeScript configuration, webpack setup with electron-forge plugin, converted main process to TypeScript, implemented secure preload script with contextBridge, created React renderer entry point with feature cards UI, and verified the app builds and launches successfully. Temporarily disabled fuses plugin due to ESM compatibility issues - can be re-enabled later if needed.\n</info added on 2025-08-04T22:42:53.700Z>",
+            "status": "done",
+            "testStrategy": "Verify the project initializes without errors. Confirm all required dependencies are installed correctly. Check that the basic project structure is created with appropriate folders."
+          },
+          {
+            "id": 2,
+            "title": "Configure Build Tools and TypeScript",
+            "description": "Set up webpack for bundling and TypeScript for type safety in the project.",
+            "dependencies": [],
+            "details": "Configure webpack v5.89.0+ for bundling the application. Set up TypeScript v5.2.2+ configuration with appropriate tsconfig.json settings for both main and renderer processes. Configure webpack loaders for TypeScript and React JSX.\n<info added on 2025-08-05T18:17:06.907Z>\nSuccessfully completed TypeScript and webpack configuration. Key achievements:\n\n1. ✅ Created separate tsconfig.json files for main and renderer processes (tsconfig.main.json, tsconfig.renderer.json) \n2. ✅ Enhanced base tsconfig.json with strict TypeScript compiler options for better type safety\n3. ✅ Updated webpack configurations to use process-specific TypeScript configs\n4. ✅ Added proper type definitions in src/types/ directory \n5. ✅ Added npm scripts for comprehensive type checking (typecheck:main, typecheck:renderer, typecheck:all)\n6. ✅ Verified all configurations work correctly - TypeScript compilation passes without errors\n7. ✅ Tested webpack bundling and packaging - builds successfully\n8. ✅ Confirmed development server starts properly with hot reload\n\nThe build tools and TypeScript are now properly configured with:\n- Webpack v5.101.0 with ts-loader v9.5.2\n- TypeScript v5.9.2 with strict mode enabled\n- Fork TS Checker for background type checking\n- Separate configs optimized for main/renderer processes\n- Enhanced type safety with strict compiler options\n</info added on 2025-08-05T18:17:06.907Z>",
+            "status": "done",
+            "testStrategy": "Verify TypeScript compilation works correctly. Test webpack bundling process completes without errors. Ensure type checking is functioning properly for both main and renderer code."
+          },
+          {
+            "id": 3,
+            "title": "Implement Code Quality Tools",
+            "description": "Configure ESLint and Prettier for code quality and formatting consistency.",
+            "dependencies": [],
+            "details": "Set up ESLint v8.53.0+ with appropriate rules for Electron, React, and TypeScript. Configure Prettier v3.1.0+ for code formatting. Create configuration files (.eslintrc, .prettierrc) with project-specific settings. Add lint and format scripts to package.json.\n<info added on 2025-08-05T18:27:43.527Z>\n**IMPLEMENTATION COMPLETED** - Successfully configured comprehensive code quality tools with ESLint v8.57.1 and Prettier v3.6.2. Key achievements include: separate ESLint configurations for main/renderer processes with TypeScript and React plugins, Prettier integration with consistent formatting rules (single quotes, semicolons, 80-char width), conflict-free integration using eslint-config-prettier and eslint-plugin-prettier, comprehensive npm scripts (lint, lint:fix, format, format:check, quality, quality:fix), and verified testing results with successful TypeScript compilation, clean linting, consistent formatting, and fully functional quality pipeline. The code quality foundation is now established for the Electron + React + TypeScript stack.\n</info added on 2025-08-05T18:27:43.527Z>",
+            "status": "done",
+            "testStrategy": "Run linting on sample code to verify rules are applied correctly. Test formatting with Prettier to ensure consistent code style. Verify integration between ESLint and Prettier works without conflicts."
+          },
+          {
+            "id": 4,
+            "title": "Set Up IPC Communication",
+            "description": "Configure basic IPC communication between main and renderer processes.",
+            "dependencies": [],
+            "details": "Implement IPC (Inter-Process Communication) channels between main and renderer processes. Create helper functions for sending and receiving messages. Set up event listeners in both processes. Implement error handling for IPC communication failures.\n<info added on 2025-08-05T18:40:03.533Z>\nSuccessfully implemented comprehensive IPC communication system! Key achievements:\n\n✅ **Comprehensive IPC Handlers**: \n- Created 15+ IPC channels covering app info, dialogs, file system, window controls, and system operations\n- Implemented secure file access with path validation to prevent directory traversal attacks\n- Added proper error handling with structured response format (success/error wrapper)\n- Included window event forwarding (focus/blur) to renderer process\n\n✅ **Type-Safe API Implementation**:\n- Built fully typed IPC interface (TypedElectronAPI) with 15+ methods\n- Created comprehensive type definitions in src/types/ipc.ts\n- Implemented type-safe preload script with proper channel mapping\n- Added helper types for method parameters and return values\n\n✅ **Developer-Friendly Helpers**:\n- Created renderer/ipc-helpers.ts with 10+ utility functions\n- Built directory selection, file operations, and dialog helpers\n- Added window control utilities and app info retrieval\n- Implemented error handling wrappers and safe IPC call patterns\n\n✅ **Testing & Integration**:\n- Successfully tested IPC communication with working demo UI\n- Directory selection dialog integration works correctly\n- App information display shows version and system details\n- Window focus/blur events properly forwarded to renderer\n- All TypeScript compilation passes without errors\n\n✅ **Security & Best Practices**:\n- File system access restricted to safe directories (cwd + userData)\n- Proper context isolation maintained in renderer process\n- Event listener cleanup implemented for memory management\n- Structured error responses with helpful error messages\n\nThe IPC communication foundation is now complete and ready for the photo management features!\n</info added on 2025-08-05T18:40:03.533Z>",
+            "status": "done",
+            "testStrategy": "Test sending messages from renderer to main process and vice versa. Verify error handling works when communication fails. Ensure data is correctly transmitted between processes."
+          },
+          {
+            "id": 5,
+            "title": "Configure Development Environment",
+            "description": "Set up development scripts and window management for efficient development workflow.",
+            "dependencies": [],
+            "details": "Create development scripts for hot reloading during development. Implement basic window management in the main process including creation, sizing, and event handling. Set up error logging system. Configure development tools integration including DevTools for debugging.",
+            "status": "done",
+            "testStrategy": "Verify hot reloading works when making changes to code. Test window creation, resizing, and closing functionality. Ensure error logging captures and displays issues properly. Test application launches successfully on both macOS and Windows."
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Implement SQLite Database Integration",
+        "description": "Set up SQLite database integration for storing image metadata, duplicate groups, and user preferences.",
+        "details": "1. Install and configure better-sqlite3 (v8.7.0+) for synchronous database operations\n2. Create database initialization module in main process\n3. Implement database schema with the following tables:\n   - images (id, path, hash, size, width, height, created_at, modified_at)\n   - duplicate_groups (id, hash, count)\n   - duplicate_items (id, group_id, image_id)\n   - user_preferences (key, value)\n   - directory_index (id, path, parent_id, is_scanned)\n4. Add database migration system for future updates\n5. Implement connection pooling for efficient database access\n6. Create data access layer with CRUD operations for each table\n7. Add indexing for performance optimization (especially on hash and path columns)\n8. Implement transaction support for batch operations\n9. Add error handling and recovery mechanisms\n10. Create database backup and restore functionality",
+        "testStrategy": "1. Unit test each CRUD operation\n2. Test database schema creation and migrations\n3. Verify indexes are properly created\n4. Performance test with large datasets\n5. Test transaction rollback on error\n6. Validate data integrity constraints\n7. Test concurrent database access",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up SQLite with better-sqlite3",
+            "description": "Install and configure better-sqlite3 for synchronous database operations and create the database initialization module in the main process.",
+            "dependencies": [],
+            "details": "Install better-sqlite3 v8.7.0+ as a dependency. Create a database service module that handles connection initialization, configuration, and provides a singleton instance. Implement proper error handling for connection failures and implement connection pooling for efficient database access.",
+            "status": "pending",
+            "testStrategy": "Verify database connection can be established. Test connection pooling under various loads. Ensure proper error handling when database files are inaccessible or corrupted."
+          },
+          {
+            "id": 2,
+            "title": "Implement database schema and tables",
+            "description": "Create the database schema with all required tables for storing image metadata, duplicate groups, and user preferences.",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Implement the database schema with tables for images, duplicate_groups, duplicate_items, user_preferences, and directory_index. Define appropriate data types, constraints, and relationships between tables. Add indexing for performance optimization, especially on hash and path columns.",
+            "status": "pending",
+            "testStrategy": "Verify all tables are created with correct structure. Test that indexes are properly created and improve query performance. Validate data integrity constraints work as expected."
+          },
+          {
+            "id": 3,
+            "title": "Create data access layer",
+            "description": "Implement a comprehensive data access layer with CRUD operations for each database table.",
+            "dependencies": [
+              "2.2"
+            ],
+            "details": "Create repository classes for each table that encapsulate database operations. Implement create, read, update, and delete operations with proper parameter validation. Add specialized query methods for common operations like finding duplicates by hash or retrieving user preferences by key.",
+            "status": "pending",
+            "testStrategy": "Unit test each CRUD operation for all tables. Verify parameter validation prevents SQL injection. Test specialized query methods with various inputs and edge cases."
+          },
+          {
+            "id": 4,
+            "title": "Implement transaction support",
+            "description": "Add transaction support for batch operations and implement error handling with rollback capabilities.",
+            "dependencies": [
+              "2.3"
+            ],
+            "details": "Create transaction wrapper functions that allow multiple database operations to be executed atomically. Implement proper error handling that rolls back transactions on failure. Add logging for transaction failures to aid debugging.",
+            "status": "pending",
+            "testStrategy": "Test transaction commits work correctly for multiple operations. Verify transactions roll back properly on errors. Test concurrent transactions to ensure they don't interfere with each other."
+          },
+          {
+            "id": 5,
+            "title": "Implement database migration system",
+            "description": "Create a migration system to handle database schema updates for future application versions.",
+            "dependencies": [
+              "2.2"
+            ],
+            "details": "Design a version-based migration system that can upgrade database schemas between application versions. Create a migrations table to track applied migrations. Implement migration scripts for the initial schema and establish a pattern for future migrations. Add backup and restore functionality to protect user data during migrations.",
+            "status": "pending",
+            "testStrategy": "Test migration from empty database to current schema. Verify migration version tracking works correctly. Test backup and restore functionality preserves all user data."
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Create Root Directory Selection Interface",
+        "description": "Implement functionality to allow users to select and persist a root directory for photo management.",
+        "details": "1. Create a directory selection component using electron.dialog.showOpenDialog\n2. Configure dialog options to only allow directory selection\n3. Use electron-store (v8.1.0+) to persist selected directory path\n4. Implement directory access permission validation using fs.access\n5. Create UI for displaying current root directory\n6. Add functionality to change root directory\n7. Implement error handling for invalid directories\n8. Add directory existence checking on application startup\n9. Create event listeners for directory selection changes\n10. Implement directory watching using chokidar (v3.5.3+) for real-time updates\n11. Add loading indicators during directory scanning\n12. Create context provider for sharing directory information across components",
+        "testStrategy": "1. Test directory selection dialog opens and returns correct path\n2. Verify selected path is persisted between application restarts\n3. Test permission validation works correctly\n4. Verify error handling for inaccessible directories\n5. Test directory change functionality\n6. Validate directory watching triggers appropriate updates",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Directory Selection Dialog",
+            "description": "Create a component that uses electron.dialog.showOpenDialog to allow users to select a directory for photo management.",
+            "dependencies": [],
+            "details": "Use electron.dialog.showOpenDialog with options to restrict selection to directories only. Implement proper error handling for dialog cancellation or failures. Ensure the dialog returns the selected directory path in a consistent format across platforms.",
+            "status": "pending",
+            "testStrategy": "Test that the dialog opens correctly, verify it only allows directory selection, and confirm it returns the correct path format on different platforms."
+          },
+          {
+            "id": 2,
+            "title": "Create Directory Persistence System",
+            "description": "Implement functionality to persist the selected directory path using electron-store and validate directory access permissions.",
+            "dependencies": [
+              "3.1"
+            ],
+            "details": "Use electron-store v8.1.0+ to save and retrieve the selected directory path. Implement fs.access checks to validate read/write permissions for the selected directory. Create functions to handle initial directory loading on application startup and directory existence verification.",
+            "status": "pending",
+            "testStrategy": "Verify selected path persists between application restarts, test permission validation works correctly for accessible and inaccessible directories, and confirm proper error handling for invalid directories."
+          },
+          {
+            "id": 3,
+            "title": "Develop Root Directory UI Components",
+            "description": "Create user interface components for displaying the current root directory and allowing users to change it.",
+            "dependencies": [
+              "3.2"
+            ],
+            "details": "Design and implement UI components to display the currently selected directory path in a user-friendly format. Create a button or interface element to trigger the directory selection dialog. Add visual indicators for directory status (valid, invalid, inaccessible) and implement proper error messaging for invalid directories.",
+            "status": "pending",
+            "testStrategy": "Test UI components render correctly with different directory states, verify change directory functionality works as expected, and validate error messages display appropriately for different error conditions."
+          },
+          {
+            "id": 4,
+            "title": "Implement Directory Watching System",
+            "description": "Create a system using chokidar to watch the selected directory for real-time updates and changes.",
+            "dependencies": [
+              "3.2"
+            ],
+            "details": "Implement directory watching using chokidar v3.5.3+ to detect file system changes in the selected directory. Create event handlers for file addition, modification, and deletion events. Implement throttling or debouncing to prevent excessive updates during batch operations. Add loading indicators during directory scanning operations.",
+            "status": "pending",
+            "testStrategy": "Test directory watching detects file additions, modifications, and deletions correctly. Verify loading indicators display during scanning operations and validate the system handles large directories efficiently."
+          },
+          {
+            "id": 5,
+            "title": "Create Directory Context Provider",
+            "description": "Implement a context provider to share directory information and functionality across application components.",
+            "dependencies": [
+              "3.1",
+              "3.2",
+              "3.3",
+              "3.4"
+            ],
+            "details": "Design and implement a React context provider that encapsulates directory selection, persistence, validation, and watching functionality. Create hooks or methods to access directory information and trigger directory-related actions from any component. Implement proper state management for directory status, loading states, and error conditions.",
+            "status": "pending",
+            "testStrategy": "Test context provider correctly shares directory information across components, verify all directory-related functionality is accessible through the context, and validate state updates propagate correctly to subscribed components."
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Implement Folder Navigation System",
+        "description": "Create a hierarchical folder browsing system with tree view interface for navigating the photo collection.",
+        "details": "1. Implement directory traversal using Node.js fs module\n2. Install and configure react-complex-tree (v2.2.0+) for tree view interface\n3. Create recursive directory scanning function with depth limiting\n4. Implement lazy loading for directory contents\n5. Add caching mechanism for directory structure\n6. Create UI components for folder tree display\n7. Implement folder selection and highlighting\n8. Add context menu for folder operations\n9. Create breadcrumb navigation component\n10. Implement keyboard navigation for tree view\n11. Add drag-and-drop support for folder reorganization\n12. Implement folder expansion state persistence\n13. Create loading indicators for directory operations\n14. Add error handling for inaccessible directories",
+        "testStrategy": "1. Test directory traversal with various folder structures\n2. Verify tree view correctly displays folder hierarchy\n3. Test lazy loading with deep folder structures\n4. Validate caching improves navigation performance\n5. Test keyboard navigation functionality\n6. Verify context menu operations work correctly\n7. Test folder selection updates other UI components\n8. Validate error handling for edge cases",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Backend Directory Structure Management",
+            "description": "Create the server-side functionality for traversing and managing directory structures using Node.js fs module",
+            "dependencies": [],
+            "details": "Implement directory traversal using Node.js fs module; Create recursive directory scanning function with depth limiting; Add error handling for inaccessible directories; Implement protection against directory traversal attacks; Create secure handling of file system operations",
+            "status": "pending",
+            "testStrategy": "Test directory traversal with various folder structures; Test depth limiting functionality; Verify error handling for inaccessible directories; Test security measures against directory traversal attacks"
+          },
+          {
+            "id": 2,
+            "title": "Implement Tree View Interface",
+            "description": "Set up and configure react-complex-tree for displaying the hierarchical folder structure",
+            "dependencies": [
+              "4.1"
+            ],
+            "details": "Install and configure react-complex-tree (v2.2.0+); Create UI components for folder tree display; Implement folder selection and highlighting; Implement keyboard navigation for tree view; Create loading indicators for directory operations",
+            "status": "pending",
+            "testStrategy": "Verify tree view correctly displays folder hierarchy; Test keyboard navigation functionality; Validate loading indicators appear during operations; Test folder selection and highlighting behavior"
+          },
+          {
+            "id": 3,
+            "title": "Implement Lazy Loading and Caching",
+            "description": "Create efficient loading and caching mechanisms for directory contents to improve performance",
+            "dependencies": [
+              "4.1",
+              "4.2"
+            ],
+            "details": "Implement lazy loading for directory contents; Add caching mechanism for directory structure; Create batch processing for file operations; Implement folder expansion state persistence; Optimize for handling large directory structures",
+            "status": "pending",
+            "testStrategy": "Test lazy loading with deep folder structures; Validate caching improves navigation performance; Measure performance with large directory structures; Verify folder expansion state persists between sessions"
+          },
+          {
+            "id": 4,
+            "title": "Implement Folder Operations and Context Menu",
+            "description": "Create functionality for folder manipulation including context menu operations",
+            "dependencies": [
+              "4.2",
+              "4.3"
+            ],
+            "details": "Add context menu for folder operations; Implement drag-and-drop support for folder reorganization; Create secure handling of folder operations; Add input validation for folder operations; Implement proper file access permission management",
+            "status": "pending",
+            "testStrategy": "Verify context menu operations work correctly; Test drag-and-drop functionality for folder reorganization; Validate security measures for folder operations; Test permission handling with various scenarios"
+          },
+          {
+            "id": 5,
+            "title": "Implement Navigation Components",
+            "description": "Create additional navigation elements to enhance the folder browsing experience",
+            "dependencies": [
+              "4.2",
+              "4.4"
+            ],
+            "details": "Create breadcrumb navigation component; Add folder history navigation; Implement favorites or bookmarks for frequently accessed folders; Create folder search functionality; Add visual indicators for special folders",
+            "status": "pending",
+            "testStrategy": "Test breadcrumb navigation accuracy; Verify history navigation works correctly; Test folder search with various queries; Validate bookmark/favorites functionality"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Develop Photo Preview System",
+        "description": "Create an image viewing system with zoom and navigation capabilities supporting multiple image formats.",
+        "details": "1. Implement image loading using sharp (v0.32.6+) for efficient processing\n2. Create image viewer component with zoom in/out functionality\n3. Implement support for common image formats (JPEG, PNG, GIF, TIFF, WebP)\n4. Add keyboard navigation between images (arrow keys)\n5. Create image metadata extraction and display (using exifr v7.1.3+)\n6. Implement responsive image loading with different resolutions based on view size\n7. Add image caching for improved performance\n8. Create thumbnail generation for gallery view\n9. Implement image rotation and basic transformations\n10. Add fullscreen mode for image viewing\n11. Create loading indicators and placeholders for images\n12. Implement error handling for corrupted or unsupported images\n13. Add lazy loading for images in gallery view",
+        "testStrategy": "1. Test image loading with various formats and sizes\n2. Verify zoom functionality works correctly\n3. Test keyboard navigation between images\n4. Validate metadata extraction and display\n5. Performance test with large image collections\n6. Test image caching improves loading speed\n7. Verify error handling for corrupted images\n8. Test responsive loading at different window sizes",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Core Image Loading System",
+            "description": "Create the foundation for loading and processing images using sharp library with support for multiple formats.",
+            "dependencies": [],
+            "details": "Implement image loading functionality using sharp v0.32.6+ for efficient processing. Add support for common image formats (JPEG, PNG, GIF, TIFF, WebP). Create error handling for corrupted or unsupported images. Implement responsive image loading with different resolutions based on view size. Set up image caching for improved performance.",
+            "status": "pending",
+            "testStrategy": "Test image loading with various formats and sizes. Verify error handling with corrupted files. Measure loading performance with different image sizes. Test responsive loading across different viewport dimensions. Validate format support for all required image types."
+          },
+          {
+            "id": 2,
+            "title": "Develop Image Viewer Component",
+            "description": "Create a responsive image viewer component with zoom, navigation, and fullscreen capabilities.",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Create image viewer component with zoom in/out functionality. Implement keyboard navigation between images using arrow keys. Add fullscreen mode for image viewing. Create loading indicators and placeholders for images. Implement image rotation and basic transformations. Ensure the viewer is responsive across different screen sizes.",
+            "status": "pending",
+            "testStrategy": "Verify zoom functionality works correctly at different levels. Test keyboard navigation between images. Validate fullscreen mode on different devices. Test loading indicators appear appropriately. Verify image transformations maintain quality and aspect ratio."
+          },
+          {
+            "id": 3,
+            "title": "Create Thumbnail Generation System",
+            "description": "Implement efficient thumbnail generation for gallery view with lazy loading support.",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Create thumbnail generation for gallery view using sharp's resize capabilities. Implement lazy loading for images in gallery view to improve performance. Add thumbnail caching to prevent regeneration. Create a responsive grid layout for thumbnails. Implement placeholder thumbnails during loading. Ensure thumbnails maintain aspect ratios of original images.",
+            "status": "pending",
+            "testStrategy": "Test thumbnail generation speed and quality. Verify lazy loading improves performance with large galleries. Test thumbnail caching reduces load times on subsequent views. Validate responsive grid layout across different screen sizes. Measure memory usage during thumbnail generation."
+          },
+          {
+            "id": 4,
+            "title": "Implement Metadata Extraction and Display",
+            "description": "Create a system to extract and display image metadata using exifr library.",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Create image metadata extraction using exifr v7.1.3+. Implement a metadata display panel showing relevant information (date taken, camera model, exposure settings, etc.). Add filtering and sorting based on metadata. Create a toggle to show/hide metadata. Implement metadata caching to improve performance for previously viewed images.",
+            "status": "pending",
+            "testStrategy": "Verify metadata extraction works correctly for various image formats. Test metadata display with different types of information. Validate filtering and sorting functionality. Test performance with large batches of images. Verify metadata caching improves subsequent load times."
+          },
+          {
+            "id": 5,
+            "title": "Create User Interface Integration",
+            "description": "Integrate all photo preview components into a cohesive user interface with keyboard shortcuts and responsive design.",
+            "dependencies": [
+              "5.2",
+              "5.3",
+              "5.4"
+            ],
+            "details": "Integrate image viewer, thumbnail gallery, and metadata display into a unified interface. Add keyboard shortcuts for common operations. Implement responsive design for different screen sizes. Create smooth transitions between gallery and preview modes. Add user preferences for default view settings. Implement drag-and-drop support for image navigation.",
+            "status": "pending",
+            "testStrategy": "Test complete user flow from gallery to detailed view and back. Verify keyboard shortcuts work correctly. Test responsive behavior across different devices and orientations. Validate user preference persistence. Test performance with large image collections in the integrated interface."
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Implement File Hashing for Duplicate Detection",
+        "description": "Create a file hashing system using the crypto module to generate unique identifiers for images to detect duplicates.",
+        "details": "1. Implement file hashing using Node.js crypto module\n2. Create multiple hashing algorithms support (MD5, SHA-1, SHA-256)\n3. Implement perceptual hashing using blockhash-js (v0.2.0+) for similar image detection\n4. Create batch processing system for hashing multiple files\n5. Implement progress tracking and reporting\n6. Add worker threads for parallel processing using worker_threads module\n7. Create database storage for file hashes\n8. Implement hash comparison algorithms\n9. Add configurable similarity thresholds\n10. Create hash caching mechanism\n11. Implement incremental hashing for large files\n12. Add error handling for file access issues\n13. Create hash verification system",
+        "testStrategy": "1. Test hashing with various image types and sizes\n2. Verify identical files produce identical hashes\n3. Test perceptual hashing with similar but not identical images\n4. Performance test with large batches of files\n5. Validate worker thread implementation improves performance\n6. Test progress reporting accuracy\n7. Verify error handling for inaccessible files\n8. Test hash comparison with different similarity thresholds",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Basic File Hashing with Crypto Module",
+            "description": "Create core file hashing functionality using Node.js crypto module with support for multiple algorithms (MD5, SHA-1, SHA-256)",
+            "dependencies": [],
+            "details": "1. Research Node.js crypto module capabilities for file hashing\n2. Implement a HashGenerator class with methods for different algorithms\n3. Create utility functions to read files as streams for efficient processing\n4. Implement algorithm selection functionality\n5. Add error handling for file access issues",
+            "status": "pending",
+            "testStrategy": "1. Test hashing with various file types and sizes\n2. Verify identical files produce identical hashes\n3. Compare output with known hash values\n4. Test error handling with inaccessible files\n5. Benchmark performance of different algorithms"
+          },
+          {
+            "id": 2,
+            "title": "Implement Perceptual Hashing for Similar Image Detection",
+            "description": "Integrate blockhash-js library to implement perceptual hashing for detecting similar (not just identical) images",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "1. Install and configure blockhash-js (v0.2.0+)\n2. Create wrapper functions for perceptual hashing\n3. Implement image preprocessing for optimal perceptual hashing\n4. Create functions to calculate similarity scores between hashes\n5. Add configurable similarity thresholds",
+            "status": "pending",
+            "testStrategy": "1. Test perceptual hashing with similar but not identical images\n2. Verify similar images produce similar hashes\n3. Test with various image modifications (resize, crop, color changes)\n4. Validate threshold configuration effectiveness\n5. Compare accuracy against standard test image sets"
+          },
+          {
+            "id": 3,
+            "title": "Develop Batch Processing System with Progress Tracking",
+            "description": "Create a system for processing multiple files in batches with progress reporting and worker threads for parallel processing",
+            "dependencies": [
+              "6.1",
+              "6.2"
+            ],
+            "details": "1. Implement batch file processing queue\n2. Add progress tracking and reporting mechanisms\n3. Integrate worker_threads module for parallel processing\n4. Create load balancing for optimal thread utilization\n5. Implement incremental hashing for large files",
+            "status": "pending",
+            "testStrategy": "1. Test batch processing with various batch sizes\n2. Verify progress reporting accuracy\n3. Performance test with and without worker threads\n4. Test with large files to validate incremental hashing\n5. Measure CPU utilization during parallel processing"
+          },
+          {
+            "id": 4,
+            "title": "Implement Database Storage for File Hashes",
+            "description": "Create a database system to store, retrieve, and manage file hashes with caching mechanisms",
+            "dependencies": [
+              "6.1",
+              "6.2",
+              "6.3"
+            ],
+            "details": "1. Design database schema for hash storage\n2. Implement database operations (insert, query, update, delete)\n3. Create hash caching mechanism for frequently accessed hashes\n4. Add indexing for optimized hash lookups\n5. Implement database migration and versioning",
+            "status": "pending",
+            "testStrategy": "1. Test database operations with large numbers of hashes\n2. Verify cache improves performance for repeated lookups\n3. Test database integrity with concurrent operations\n4. Validate index performance for various query patterns\n5. Test migration between different schema versions"
+          },
+          {
+            "id": 5,
+            "title": "Develop Hash Comparison and Verification System",
+            "description": "Create algorithms and interfaces for comparing hashes to detect duplicates and verify file integrity",
+            "dependencies": [
+              "6.1",
+              "6.2",
+              "6.3",
+              "6.4"
+            ],
+            "details": "1. Implement exact hash matching for duplicate detection\n2. Create similarity-based matching using perceptual hashes\n3. Develop hash verification system for file integrity checks\n4. Implement result sorting and grouping by similarity\n5. Add visualization tools for duplicate/similar file relationships",
+            "status": "pending",
+            "testStrategy": "1. Test exact matching with known duplicates\n2. Verify similarity matching with modified images\n3. Test verification system with corrupted files\n4. Validate sorting and grouping with large result sets\n5. Test visualization with complex duplicate relationships"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Create Duplicate Detection System",
+        "description": "Develop a system to scan the photo collection, identify duplicates using file hashing, and store results in the database.",
+        "details": "1. Create scanning service to traverse directories and process images\n2. Implement duplicate detection algorithm using hash comparison\n3. Create database storage for duplicate groups\n4. Implement batch processing with configurable batch size\n5. Add progress indicators and status updates\n6. Create scan cancellation functionality\n7. Implement incremental scanning for previously scanned directories\n8. Add scan scheduling and background processing\n9. Create scan history and statistics\n10. Implement different duplicate detection modes (exact match, similar images)\n11. Add exclusion list for directories to skip\n12. Create scan optimization using file metadata pre-filtering\n13. Implement memory management for large collections",
+        "testStrategy": "1. Test scanning with various directory structures\n2. Verify duplicate detection accuracy with known duplicates\n3. Test batch processing with large collections\n4. Validate progress reporting accuracy\n5. Test scan cancellation works correctly\n6. Verify incremental scanning only processes new/modified files\n7. Performance test with 10,000+ image collection\n8. Test memory usage during large scans",
+        "priority": "high",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Directory Scanning Service",
+            "description": "Create a service that can traverse directories and process images for duplicate detection",
+            "dependencies": [],
+            "details": "Develop a scanning service that recursively traverses directories, identifies image files, and prepares them for processing. Include functionality to handle large directory structures efficiently and implement file type filtering to only process supported image formats.",
+            "status": "pending",
+            "testStrategy": "Test with various directory structures including nested folders, test with mixed file types, verify all image files are correctly identified, measure performance with large directories."
+          },
+          {
+            "id": 2,
+            "title": "Develop Hash-Based Duplicate Detection Algorithm",
+            "description": "Implement an algorithm that uses file hashing to identify duplicate images",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "Create a duplicate detection system using cryptographic hashing (SHA-256 or similar) to generate unique fingerprints for each image. Implement comparison logic to group images with identical hashes. Include optimization for handling large batches of images and consider file size pre-filtering.",
+            "status": "pending",
+            "testStrategy": "Test with known duplicate sets, verify accuracy with identical files in different locations, test with similar but not identical images, benchmark performance with large image sets."
+          },
+          {
+            "id": 3,
+            "title": "Create Database Schema for Duplicate Storage",
+            "description": "Design and implement database structure to store duplicate image groups and their relationships",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Design a database schema to efficiently store duplicate image information, including file paths, hash values, and grouping information. Implement database operations for storing, retrieving, and updating duplicate records. Include indexing for performance optimization.",
+            "status": "pending",
+            "testStrategy": "Test database operations with large duplicate sets, verify data integrity after multiple scan operations, test concurrent access to the database, measure query performance for duplicate retrieval."
+          },
+          {
+            "id": 4,
+            "title": "Implement Batch Processing System",
+            "description": "Create a batch processing system with configurable batch size and progress tracking",
+            "dependencies": [
+              "7.1",
+              "7.2",
+              "7.3"
+            ],
+            "details": "Develop a batch processing system that can handle large image collections by processing them in configurable chunks. Implement memory management to prevent out-of-memory errors with large collections. Add progress tracking and status updates to provide feedback during scanning operations.",
+            "status": "pending",
+            "testStrategy": "Test with various batch sizes to determine optimal configuration, verify memory usage remains stable during large scans, test progress reporting accuracy, validate system can recover from errors during batch processing."
+          },
+          {
+            "id": 5,
+            "title": "Create Scan Control and Management Interface",
+            "description": "Develop user interface for controlling scans with cancellation, scheduling, and history features",
+            "dependencies": [
+              "7.4"
+            ],
+            "details": "Implement a user interface for initiating, monitoring, and controlling scan operations. Include functionality for scan cancellation, scheduling background scans, and viewing scan history and statistics. Add support for incremental scanning that only processes new or modified files since the last scan.",
+            "status": "pending",
+            "testStrategy": "Test scan cancellation at various stages of processing, verify incremental scanning correctly identifies new/modified files, test scheduled scans execute at the correct times, validate scan history accurately records all operations."
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Develop Duplicate Management Interface",
+        "description": "Create a user interface for reviewing and managing duplicate photos with side-by-side comparison and batch operations.",
+        "details": "1. Create duplicate groups list view component\n2. Implement side-by-side comparison interface\n3. Add batch selection functionality for multiple files\n4. Create deletion confirmation dialogs\n5. Implement safe file deletion with recycle bin/trash integration\n6. Add undo functionality for accidental deletions using electron-undo-redo (v1.4.0+)\n7. Create file information display panel\n8. Implement sorting and filtering for duplicate groups\n9. Add keyboard shortcuts for common operations\n10. Create context menus for additional actions\n11. Implement drag-and-drop for file operations\n12. Add image difference highlighting for similar but not identical images\n13. Create statistics display for duplicate findings",
+        "testStrategy": "1. Test duplicate groups display with various scenarios\n2. Verify side-by-side comparison works correctly\n3. Test batch selection and operations\n4. Validate deletion confirmation and execution\n5. Test undo functionality restores deleted files\n6. Verify file information display accuracy\n7. Test sorting and filtering functionality\n8. Validate keyboard shortcuts work as expected",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Duplicate Groups List View",
+            "description": "Create a component that displays groups of duplicate photos in a list format with thumbnails and basic metadata.",
+            "dependencies": [],
+            "details": "1. Design and implement a list component to display duplicate groups\n2. Create thumbnail preview for each duplicate item\n3. Show file count, total size, and location information for each group\n4. Implement group expansion/collapse functionality\n5. Add visual indicators for exact vs. similar duplicates",
+            "status": "pending",
+            "testStrategy": "1. Test with various duplicate group sizes (2 files, 10+ files)\n2. Verify thumbnails load correctly for different image formats\n3. Validate group expansion/collapse works properly\n4. Test with large numbers of duplicate groups (100+)\n5. Verify performance with large image collections"
+          },
+          {
+            "id": 2,
+            "title": "Develop Side-by-Side Comparison Interface",
+            "description": "Create an interface that allows users to compare duplicate photos side by side with zoom and pan capabilities.",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "1. Implement a split-view component for comparing two or more images\n2. Add synchronized zoom and pan functionality across compared images\n3. Display detailed metadata differences between images\n4. Implement image difference highlighting for similar but not identical images\n5. Add toggle controls for different comparison modes (overlay, side-by-side, etc.)",
+            "status": "pending",
+            "testStrategy": "1. Test comparison with different image sizes and formats\n2. Verify synchronized zoom and pan works correctly\n3. Test metadata comparison accuracy\n4. Validate difference highlighting with similar images\n5. Test with various screen sizes and resolutions"
+          },
+          {
+            "id": 3,
+            "title": "Create Batch Operations Functionality",
+            "description": "Implement functionality for selecting and performing operations on multiple duplicate files simultaneously.",
+            "dependencies": [
+              "8.1",
+              "8.2"
+            ],
+            "details": "1. Add multi-select capability with checkboxes and keyboard shortcuts\n2. Implement batch deletion with smart selection options (keep newest, highest resolution, etc.)\n3. Create batch move/export functionality\n4. Add batch renaming capabilities\n5. Implement selection filters (select all except one per group, etc.)",
+            "status": "pending",
+            "testStrategy": "1. Test multi-select with mouse and keyboard interactions\n2. Verify batch operations work correctly with large selections\n3. Test smart selection algorithms with various file scenarios\n4. Validate batch move operations maintain file integrity\n5. Test selection filters produce expected results"
+          },
+          {
+            "id": 4,
+            "title": "Implement File Management Operations",
+            "description": "Create functionality for safe file deletion, moving, and restoration with proper system integration.",
+            "dependencies": [
+              "8.3"
+            ],
+            "details": "1. Implement safe file deletion with recycle bin/trash integration\n2. Create confirmation dialogs with clear information about affected files\n3. Add undo functionality using electron-undo-redo (v1.4.0+)\n4. Implement file information display panel with detailed metadata\n5. Add drag-and-drop support for file operations",
+            "status": "pending",
+            "testStrategy": "1. Test deletion sends files to system trash/recycle bin\n2. Verify confirmation dialogs display correct file information\n3. Test undo functionality restores files correctly\n4. Validate file information panel shows accurate metadata\n5. Test drag-and-drop operations work as expected"
+          },
+          {
+            "id": 5,
+            "title": "Add Advanced UI Features and Keyboard Shortcuts",
+            "description": "Implement sorting, filtering, keyboard shortcuts, and context menus to enhance the duplicate management experience.",
+            "dependencies": [
+              "8.1",
+              "8.2",
+              "8.3",
+              "8.4"
+            ],
+            "details": "1. Implement sorting and filtering for duplicate groups (by size, date, similarity)\n2. Add keyboard shortcuts for common operations (delete, select, navigate)\n3. Create context menus for additional actions\n4. Add statistics display for duplicate findings\n5. Implement user preference saving for interface settings",
+            "status": "pending",
+            "testStrategy": "1. Test sorting and filtering with various criteria\n2. Verify all keyboard shortcuts work as expected\n3. Test context menus appear in appropriate contexts\n4. Validate statistics display shows accurate information\n5. Test user preferences are correctly saved and restored"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Implement User Preferences System",
+        "description": "Create a system for storing and managing user preferences including UI settings, scan configurations, and application behavior.",
+        "details": "1. Design preferences data model\n2. Implement preferences storage using electron-store\n3. Create preferences UI with form controls\n4. Add validation for preference values\n5. Implement default preferences\n6. Create preferences migration for version updates\n7. Add preferences categories (General, Scanning, UI, Advanced)\n8. Implement real-time preference application\n9. Create preferences import/export functionality\n10. Add preferences reset option\n11. Implement context-sensitive preferences\n12. Create preferences documentation\n13. Add preferences search functionality",
+        "testStrategy": "1. Test preferences storage and retrieval\n2. Verify UI correctly displays current preferences\n3. Test validation prevents invalid values\n4. Validate preferences are applied correctly to application\n5. Test preferences migration with version changes\n6. Verify import/export functionality\n7. Test preferences reset returns to defaults\n8. Validate preferences search functionality",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design and Implement Preferences Data Model",
+            "description": "Create a comprehensive data model for user preferences and implement storage using electron-store",
+            "dependencies": [],
+            "details": "Design a structured data model that includes all preference categories (General, Scanning, UI, Advanced). Implement the storage layer using electron-store to persist preferences between sessions. Define schema validation rules and implement default values for all preference options.",
+            "status": "pending",
+            "testStrategy": "Test preference object serialization/deserialization. Verify persistence across application restarts. Test schema validation with valid and invalid inputs."
+          },
+          {
+            "id": 2,
+            "title": "Create Preferences UI Components",
+            "description": "Develop UI components for displaying and editing user preferences with proper categorization",
+            "dependencies": [
+              "9.1"
+            ],
+            "details": "Create a tabbed interface for the different preference categories. Implement appropriate form controls (toggles, dropdowns, sliders, text inputs) for each preference type. Ensure the UI accurately reflects the current preference values and provides visual feedback for changes.",
+            "status": "pending",
+            "testStrategy": "Test UI rendering with various preference configurations. Verify form controls correctly display and modify preference values. Test accessibility compliance."
+          },
+          {
+            "id": 3,
+            "title": "Implement Preference Validation and Error Handling",
+            "description": "Add validation logic for preference values and implement error handling for invalid inputs",
+            "dependencies": [
+              "9.1",
+              "9.2"
+            ],
+            "details": "Create validation rules for each preference type. Implement client-side validation to prevent invalid inputs. Add error messages and visual indicators for validation failures. Ensure preferences cannot be saved in an invalid state.",
+            "status": "pending",
+            "testStrategy": "Test validation with boundary values and invalid inputs. Verify error messages are clear and helpful. Test validation across all preference categories."
+          },
+          {
+            "id": 4,
+            "title": "Implement Real-time Preference Application",
+            "description": "Create a system to apply preference changes in real-time throughout the application",
+            "dependencies": [
+              "9.1",
+              "9.2",
+              "9.3"
+            ],
+            "details": "Implement an event-based system to notify application components of preference changes. Create handlers in relevant components to respond to preference updates. Ensure UI elements update immediately when preferences change. Optimize to prevent unnecessary re-renders.",
+            "status": "pending",
+            "testStrategy": "Test real-time updates across different application views. Measure performance impact of preference changes. Verify all dependent components correctly respond to preference updates."
+          },
+          {
+            "id": 5,
+            "title": "Implement Preferences Import/Export and Reset Functionality",
+            "description": "Create functionality to import/export preference configurations and reset to defaults",
+            "dependencies": [
+              "9.1",
+              "9.2",
+              "9.3",
+              "9.4"
+            ],
+            "details": "Implement JSON export of current preferences with proper formatting. Create import functionality with validation of the imported configuration. Add a reset option that restores all preferences to their default values. Implement confirmation dialogs for destructive actions.",
+            "status": "pending",
+            "testStrategy": "Test export produces valid, complete JSON. Verify import correctly applies all settings. Test import validation rejects malformed files. Verify reset functionality correctly restores all defaults."
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Implement Performance Optimization",
+        "description": "Optimize application performance for handling large photo collections with efficient memory management and asynchronous operations.",
+        "details": "1. Implement lazy loading for image thumbnails and previews\n2. Create batch processing for file operations\n3. Implement efficient memory management using streams\n4. Add database indexing for fast lookups\n5. Create asynchronous file operations using promises\n6. Implement caching strategies for frequently accessed data\n7. Add pagination for large result sets\n8. Create background processing for intensive operations\n9. Implement progressive loading for large images\n10. Add request throttling and debouncing\n11. Create performance monitoring and logging\n12. Implement resource cleanup for unused objects\n13. Add virtual list rendering for large collections using react-window (v1.8.9+)",
+        "testStrategy": "1. Performance test with 10,000+ image collection\n2. Measure memory usage during intensive operations\n3. Test UI responsiveness during background tasks\n4. Verify lazy loading improves initial load time\n5. Test pagination with large result sets\n6. Validate caching improves repeated operations\n7. Measure database query performance\n8. Test virtual list rendering with large collections",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Lazy Loading for Images",
+            "description": "Create a system for lazy loading image thumbnails and previews to improve initial load time and reduce memory usage.",
+            "dependencies": [],
+            "details": "Implement IntersectionObserver API to detect when images enter viewport, create placeholder components for unloaded images, add progressive image loading with low-resolution previews, implement image unloading when scrolled out of view, and add error handling for failed image loads.",
+            "status": "pending",
+            "testStrategy": "Measure initial load time with and without lazy loading enabled, verify memory usage reduction with large collections, test scrolling performance with 1000+ images, validate image loading behavior at different network speeds, and ensure proper placeholder display during loading."
+          },
+          {
+            "id": 2,
+            "title": "Optimize Database Operations",
+            "description": "Implement database indexing and query optimization for fast lookups and efficient data retrieval with large collections.",
+            "dependencies": [
+              "10.1"
+            ],
+            "details": "Add appropriate indexes to database collections/tables, implement pagination for large result sets with configurable page sizes, create efficient query patterns avoiding full collection scans, implement cursor-based pagination for consistent performance, and add caching layer for frequently accessed data.",
+            "status": "pending",
+            "testStrategy": "Benchmark query performance before and after optimization, test with collections of 10,000+ images, verify pagination works correctly at boundaries, measure memory usage during large queries, and validate cache hit rates for repeated operations."
+          },
+          {
+            "id": 3,
+            "title": "Implement Asynchronous File Operations",
+            "description": "Create a system for handling file operations asynchronously using promises and background processing to maintain UI responsiveness.",
+            "dependencies": [
+              "10.1",
+              "10.2"
+            ],
+            "details": "Implement promise-based file operations for all I/O tasks, create a worker thread pool for CPU-intensive operations, add progress reporting for long-running tasks, implement cancellation support for ongoing operations, and create a queue system for managing concurrent operations.",
+            "status": "pending",
+            "testStrategy": "Test UI responsiveness during heavy file operations, verify progress reporting accuracy, validate proper error handling for failed operations, test cancellation functionality, and measure performance improvement compared to synchronous operations."
+          },
+          {
+            "id": 4,
+            "title": "Implement Memory Management Optimization",
+            "description": "Create efficient memory management using streams, buffer pooling, and resource cleanup to prevent memory leaks and reduce memory footprint.",
+            "dependencies": [
+              "10.1",
+              "10.3"
+            ],
+            "details": "Implement streaming for large file operations, create automatic resource cleanup for unused objects, implement buffer pooling for file operations, add memory usage monitoring and logging, and create virtual list rendering for large collections using react-window.",
+            "status": "pending",
+            "testStrategy": "Monitor memory usage during extended application use, test with extremely large files (500MB+), verify no memory leaks after repeated operations, measure rendering performance with large collections, and validate resource cleanup works properly."
+          },
+          {
+            "id": 5,
+            "title": "Implement Request Throttling and Batching",
+            "description": "Create systems for throttling, debouncing, and batching operations to optimize performance during intensive tasks.",
+            "dependencies": [
+              "10.2",
+              "10.3",
+              "10.4"
+            ],
+            "details": "Implement debouncing for user-triggered operations, create request throttling for API calls and file operations, add batch processing for similar operations, implement priority queuing for critical tasks, and create background scheduling for non-urgent operations.",
+            "status": "pending",
+            "testStrategy": "Test system behavior under high load conditions, verify batching correctly combines similar operations, validate throttling prevents system overload, measure performance improvement with batched vs. individual operations, and test priority handling ensures critical tasks complete first."
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Implement Security Measures",
+        "description": "Implement security features to ensure safe file operations, prevent attacks, and handle malicious files.",
+        "details": "1. Implement proper file access permission management\n2. Add input validation and sanitization for all user inputs\n3. Create secure handling of file system operations\n4. Implement protection against directory traversal attacks\n5. Add safe handling of corrupted or malicious image files\n6. Create file integrity verification\n7. Implement secure IPC communication\n8. Add content security policy configuration\n9. Create error handling that doesn't expose sensitive information\n10. Implement secure storage of user preferences\n11. Add file quarantine for suspicious files\n12. Create logging for security events\n13. Implement update verification for auto-updates",
+        "testStrategy": "1. Test file permission handling with various scenarios\n2. Verify input validation prevents injection attacks\n3. Test directory traversal protection\n4. Validate handling of corrupted image files\n5. Security audit of IPC communication\n6. Test content security policy effectiveness\n7. Verify error messages don't leak sensitive information\n8. Test file quarantine functionality",
+        "priority": "high",
+        "dependencies": [
+          3,
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement File Access Permission Management",
+            "description": "Create a system to manage and enforce proper file access permissions throughout the application.",
+            "dependencies": [],
+            "details": "Implement file permission checks before read/write operations, create permission elevation requests when needed, develop a permission model for different user roles, implement secure file ownership verification, and add permission auditing capabilities.",
+            "status": "pending",
+            "testStrategy": "Test with various user permission scenarios, verify permission enforcement blocks unauthorized access, validate permission elevation works correctly, test file ownership verification, and perform security audit of permission implementation."
+          },
+          {
+            "id": 2,
+            "title": "Implement Input Validation and Sanitization",
+            "description": "Create comprehensive input validation and sanitization for all user inputs to prevent injection attacks and malicious inputs.",
+            "dependencies": [
+              "11.1"
+            ],
+            "details": "Implement client-side validation for all form inputs, add server-side validation as a secondary defense, create input sanitization for file paths and names, implement protection against SQL injection for database operations, and add XSS protection for any displayed user input.",
+            "status": "pending",
+            "testStrategy": "Test with malicious input patterns, verify SQL injection attempts are blocked, validate XSS protection effectiveness, test boundary cases for input validation, and perform penetration testing on input handling."
+          },
+          {
+            "id": 3,
+            "title": "Implement Protection Against Directory Traversal",
+            "description": "Create safeguards to prevent directory traversal attacks that could expose sensitive files outside the application's scope.",
+            "dependencies": [
+              "11.1",
+              "11.2"
+            ],
+            "details": "Implement path normalization for all file operations, create a whitelist of allowed directories, add detection and blocking of path traversal patterns (../, etc.), implement secure base directory enforcement, and add logging for attempted directory traversal attacks.",
+            "status": "pending",
+            "testStrategy": "Test with various directory traversal attack patterns, verify access is restricted to allowed directories only, validate path normalization correctly handles edge cases, test with encoded traversal attempts, and perform security audit of directory access controls."
+          },
+          {
+            "id": 4,
+            "title": "Implement Secure Handling of Malicious Files",
+            "description": "Create mechanisms to safely handle potentially corrupted or malicious image files to prevent application exploits.",
+            "dependencies": [
+              "11.2",
+              "11.3"
+            ],
+            "details": "Implement image validation before processing, create sandboxed processing for untrusted files, add file type verification beyond extensions, implement file size limits and timeout controls, and create quarantine functionality for suspicious files.",
+            "status": "pending",
+            "testStrategy": "Test with corrupted image files, verify handling of malformed metadata, validate sandboxed processing prevents exploits, test with files containing known exploit patterns, and verify quarantine functionality works correctly."
+          },
+          {
+            "id": 5,
+            "title": "Implement Secure IPC and Update Verification",
+            "description": "Create secure inter-process communication channels and implement verification for application updates.",
+            "dependencies": [
+              "11.1",
+              "11.2",
+              "11.3"
+            ],
+            "details": "Implement secure IPC channels with proper authentication, create message validation for all IPC communications, add encryption for sensitive IPC data, implement digital signature verification for application updates, and create secure update download and installation processes.",
+            "status": "pending",
+            "testStrategy": "Test IPC security with unauthorized access attempts, verify update signature verification blocks tampered updates, validate encrypted IPC channels protect sensitive data, test update process with various scenarios including interrupted downloads, and perform security audit of the update mechanism."
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Create Comprehensive Testing Suite",
+        "description": "Develop a comprehensive testing suite including unit, integration, and UI tests to ensure application reliability.",
+        "details": "1. Set up Jest (v29.7.0+) for unit testing\n2. Implement component testing with React Testing Library (v14.1.0+)\n3. Create database operation tests\n4. Implement file system operation mocking\n5. Add integration tests for main workflows\n6. Create UI testing using Spectron (v19.0.0+)\n7. Implement end-to-end testing scenarios\n8. Add performance testing for critical operations\n9. Create cross-platform testing configuration\n10. Implement test coverage reporting\n11. Add visual regression testing using jest-image-snapshot (v6.2.0+)\n12. Create automated test running in CI pipeline\n13. Implement mock data generation for testing",
+        "testStrategy": "1. Verify unit tests cover core functionality\n2. Test component rendering and interactions\n3. Validate integration tests cover main workflows\n4. Test UI functionality across platforms\n5. Verify performance tests identify bottlenecks\n6. Check test coverage meets minimum thresholds\n7. Validate visual regression tests catch UI changes\n8. Test automated CI pipeline execution",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Unit Testing Framework",
+            "description": "Configure Jest and React Testing Library for unit and component testing",
+            "dependencies": [],
+            "details": "Install and configure Jest v29.7.0+ with proper configuration for the project environment. Set up React Testing Library v14.1.0+ for component testing. Create test directory structure and initial configuration files. Configure test runners and implement basic test utilities.",
+            "status": "pending",
+            "testStrategy": "Verify Jest runs correctly with sample tests. Confirm React Testing Library properly renders components. Test configuration works across different environments. Ensure proper reporting of test results."
+          },
+          {
+            "id": 2,
+            "title": "Implement Core Functionality Tests",
+            "description": "Create unit tests for database operations, file system interactions, and core business logic",
+            "dependencies": [
+              "12.1"
+            ],
+            "details": "Develop tests for database CRUD operations using better-sqlite3. Implement file system operation mocking for testing file interactions. Create unit tests for core business logic including duplicate detection algorithms. Set up mock data generation for consistent test scenarios.",
+            "status": "pending",
+            "testStrategy": "Verify all database operations are properly tested with mock data. Ensure file system mocks correctly simulate real file operations. Test core algorithms with known input/output pairs. Validate error handling and edge cases."
+          },
+          {
+            "id": 3,
+            "title": "Create Integration Test Suite",
+            "description": "Develop integration tests for main application workflows and component interactions",
+            "dependencies": [
+              "12.1",
+              "12.2"
+            ],
+            "details": "Implement integration tests for key workflows such as directory scanning, duplicate detection, and photo management. Create tests for component interactions and state management. Test API integrations and data flow between components. Implement test fixtures for consistent integration testing.",
+            "status": "pending",
+            "testStrategy": "Verify end-to-end workflows function correctly. Test component integration with realistic data scenarios. Validate state management across component boundaries. Ensure proper error propagation between integrated components."
+          },
+          {
+            "id": 4,
+            "title": "Implement UI and End-to-End Testing",
+            "description": "Set up Spectron for UI testing and create end-to-end test scenarios",
+            "dependencies": [
+              "12.3"
+            ],
+            "details": "Configure Spectron v19.0.0+ for UI testing in Electron environment. Create end-to-end test scenarios covering main user journeys. Implement visual regression testing using jest-image-snapshot v6.2.0+. Develop cross-platform testing configuration to ensure consistent behavior across operating systems.",
+            "status": "pending",
+            "testStrategy": "Test UI rendering and interactions across platforms. Verify user workflows function correctly from start to finish. Validate visual consistency using snapshot comparisons. Test application behavior under various system conditions."
+          },
+          {
+            "id": 5,
+            "title": "Set Up CI/CD Testing Pipeline",
+            "description": "Configure automated testing in CI pipeline with coverage reporting and performance testing",
+            "dependencies": [
+              "12.1",
+              "12.2",
+              "12.3",
+              "12.4"
+            ],
+            "details": "Implement automated test running in CI pipeline. Set up test coverage reporting with minimum threshold requirements. Add performance testing for critical operations like scanning large directories and processing images. Configure test result reporting and notifications. Implement scheduled test runs for regression testing.",
+            "status": "pending",
+            "testStrategy": "Verify CI pipeline correctly executes all test suites. Test coverage reports accurately reflect code coverage. Validate performance tests identify bottlenecks. Ensure test results are properly reported and accessible to the team."
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Implement Cross-Platform Build Configuration",
+        "description": "Set up build configuration for creating distributable packages for both macOS and Windows platforms.",
+        "details": "1. Configure electron-builder (v24.6.4+) for cross-platform builds\n2. Set up code signing for macOS and Windows\n3. Create build scripts for both platforms\n4. Implement icon generation for application\n5. Add application metadata and version information\n6. Create installer customization\n7. Implement build optimization and minification\n8. Add license and documentation inclusion\n9. Create automated build pipeline\n10. Implement version management and release notes generation\n11. Add build artifact storage and distribution\n12. Create build verification tests\n13. Implement build caching for faster builds",
+        "testStrategy": "1. Test builds on both macOS and Windows\n2. Verify installers work correctly\n3. Test code signing verification\n4. Validate application metadata is correct\n5. Test installation and uninstallation\n6. Verify build optimization reduces package size\n7. Test automated build pipeline\n8. Validate version information is correct",
+        "priority": "medium",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Configure electron-builder for cross-platform builds",
+            "description": "Set up electron-builder with appropriate configuration for both macOS and Windows platforms, including package.json scripts and build configuration files.",
+            "dependencies": [],
+            "details": "Install electron-builder v24.6.4+, create electron-builder.yml configuration file with appropriate settings for both platforms, define build targets (dmg, pkg for macOS; nsis, portable for Windows), configure build directories and output formats, and add build scripts to package.json.",
+            "status": "pending",
+            "testStrategy": "Verify electron-builder configuration loads correctly, test basic build command execution, validate configuration syntax, and ensure build targets are properly defined for both platforms."
+          },
+          {
+            "id": 2,
+            "title": "Implement code signing for macOS and Windows",
+            "description": "Set up code signing certificates and configuration for both platforms to ensure applications are trusted by operating systems.",
+            "dependencies": [
+              "13.1"
+            ],
+            "details": "Obtain code signing certificates for both platforms (Apple Developer certificate for macOS, Microsoft Authenticode for Windows), configure certificate storage and access in the build environment, implement secure certificate password management, and configure electron-builder to use the appropriate certificates during build process.",
+            "status": "pending",
+            "testStrategy": "Verify signed applications pass OS verification on both platforms, test certificate loading during build process, validate signature on built applications using platform verification tools."
+          },
+          {
+            "id": 3,
+            "title": "Create application assets and metadata",
+            "description": "Generate application icons for both platforms and configure application metadata including version information, descriptions, and installer customization.",
+            "dependencies": [
+              "13.1"
+            ],
+            "details": "Create high-resolution application icons in required formats (icns for macOS, ico for Windows), implement automatic icon conversion pipeline, configure application metadata in package.json and electron-builder configuration, set up version management system, and create installer customization including license agreements and documentation inclusion.",
+            "status": "pending",
+            "testStrategy": "Verify icons display correctly on both platforms, validate application metadata appears correctly in OS properties, test installer customization elements appear as expected during installation."
+          },
+          {
+            "id": 4,
+            "title": "Implement build optimization and minification",
+            "description": "Set up build pipeline optimizations to reduce package size and improve application performance in production builds.",
+            "dependencies": [
+              "13.1",
+              "13.3"
+            ],
+            "details": "Configure webpack or other bundling tools for production optimization, implement code minification and tree shaking, set up asset compression, configure electron-builder to exclude development dependencies, implement build caching for faster builds, and create strategies for reducing final package size.",
+            "status": "pending",
+            "testStrategy": "Compare build sizes before and after optimization, measure build performance with and without caching, verify application functionality is preserved after optimization, test load times of optimized application."
+          },
+          {
+            "id": 5,
+            "title": "Create automated build pipeline",
+            "description": "Implement CI/CD workflow for automated building, testing, and distribution of application packages for both platforms.",
+            "dependencies": [
+              "13.1",
+              "13.2",
+              "13.3",
+              "13.4"
+            ],
+            "details": "Set up GitHub Actions or similar CI/CD service with workflows for both platforms, configure build matrix for different OS targets, implement automated testing before build, set up artifact storage and distribution, create release management workflow including version bumping and release notes generation, and implement build verification tests.",
+            "status": "pending",
+            "testStrategy": "Test complete CI/CD pipeline with sample changes, verify artifacts are correctly generated and stored, validate release process creates proper release notes and version information, test build verification catches potential issues."
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Implement Auto-Update Functionality",
+        "description": "Create an auto-update system to allow users to easily update the application to new versions.",
+        "details": "1. Implement electron-updater (v6.1.4+) for auto-updates\n2. Create update server configuration\n3. Add update checking on application startup\n4. Implement manual update checking\n5. Create update notification UI\n6. Add download progress indicators\n7. Implement update installation and restart\n8. Create rollback capability for failed updates\n9. Add update release notes display\n10. Implement update deferral option\n11. Create update logging and error reporting\n12. Add update verification and integrity checking\n13. Implement staged rollouts for updates",
+        "testStrategy": "1. Test update checking functionality\n2. Verify update notification displays correctly\n3. Test download and installation process\n4. Validate rollback works for failed updates\n5. Test release notes display\n6. Verify update deferral works correctly\n7. Test update logging captures relevant information\n8. Validate integrity checking prevents corrupted updates",
+        "priority": "low",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up electron-updater and server configuration",
+            "description": "Implement electron-updater package and configure the update server to enable the auto-update functionality",
+            "dependencies": [],
+            "details": "Install electron-updater v6.1.4+, configure update server endpoints, set up proper authentication for update requests, create update publishing workflow, and implement environment-specific configurations for development/production",
+            "status": "pending",
+            "testStrategy": "Verify server configuration with mock updates, test authentication mechanisms, validate update endpoint responses, and ensure proper configuration across different environments"
+          },
+          {
+            "id": 2,
+            "title": "Implement update checking mechanisms",
+            "description": "Create both automatic and manual update checking functionality with appropriate user notifications",
+            "dependencies": [
+              "14.1"
+            ],
+            "details": "Add automatic update checking on application startup with configurable frequency, implement manual update checking through menu options, create update notification UI with version information, and add update deferral options for users",
+            "status": "pending",
+            "testStrategy": "Test automatic update checking triggers correctly, verify manual update checking works as expected, validate notification UI displays properly, and ensure deferral options function correctly"
+          },
+          {
+            "id": 3,
+            "title": "Develop update download and progress tracking",
+            "description": "Create the functionality to download updates with progress indicators and proper error handling",
+            "dependencies": [
+              "14.2"
+            ],
+            "details": "Implement secure download of update packages, create progress bar UI components, add download speed indicators, implement pause/resume functionality if supported, and ensure proper error handling for network issues",
+            "status": "pending",
+            "testStrategy": "Test download functionality with various network conditions, verify progress indicators update correctly, validate error handling for interrupted downloads, and ensure UI feedback is accurate"
+          },
+          {
+            "id": 4,
+            "title": "Implement update installation and rollback capability",
+            "description": "Create the functionality to install updates with proper restart mechanisms and implement rollback for failed updates",
+            "dependencies": [
+              "14.3"
+            ],
+            "details": "Implement update installation process, add application restart functionality, create backup of current version before updating, implement rollback mechanism for failed updates, and add integrity verification of downloaded packages",
+            "status": "pending",
+            "testStrategy": "Test installation process with various update scenarios, verify application restarts correctly after update, validate rollback functionality works when updates fail, and ensure integrity checking prevents corrupted updates"
+          },
+          {
+            "id": 5,
+            "title": "Add release notes display and update logging",
+            "description": "Implement functionality to display release notes for updates and create comprehensive logging for the update process",
+            "dependencies": [
+              "14.2",
+              "14.4"
+            ],
+            "details": "Create UI for displaying update release notes, implement markdown rendering for formatted notes, add detailed logging throughout the update process, implement error reporting for failed updates, and create staged rollout capability for gradual update distribution",
+            "status": "pending",
+            "testStrategy": "Verify release notes display correctly with various formatting, test logging captures all relevant update events, validate error reporting provides useful information, and ensure staged rollout functionality works as expected"
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Create User Documentation",
+        "description": "Develop comprehensive user documentation including setup instructions, usage guides, and troubleshooting information.",
+        "details": "1. Create user manual with setup and usage instructions\n2. Implement in-app help system\n3. Add contextual help tooltips\n4. Create video tutorials for main features\n5. Implement keyboard shortcut reference\n6. Add troubleshooting guide and FAQ\n7. Create getting started wizard for new users\n8. Implement feature discovery tours\n9. Add documentation search functionality\n10. Create printable documentation\n11. Implement documentation versioning\n12. Add community support links\n13. Create documentation feedback system",
+        "testStrategy": "1. Verify documentation accuracy with user testing\n2. Test in-app help system accessibility\n3. Validate contextual help provides relevant information\n4. Test video tutorials playback\n5. Verify keyboard shortcut reference is complete\n6. Test troubleshooting guide addresses common issues\n7. Validate getting started wizard helps new users\n8. Test documentation search functionality",
+        "priority": "low",
+        "dependencies": [
+          3,
+          4,
+          5,
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Develop Core Documentation Content",
+            "description": "Create comprehensive user manual with setup instructions, usage guides, and troubleshooting information",
+            "dependencies": [],
+            "details": "1. Outline documentation structure and sections\n2. Write detailed installation and setup instructions\n3. Create comprehensive feature usage guides\n4. Develop troubleshooting section with common issues and solutions\n5. Create FAQ section based on anticipated user questions\n6. Include keyboard shortcut reference\n7. Add system requirements and compatibility information",
+            "status": "pending",
+            "testStrategy": "1. Review documentation for accuracy and completeness\n2. Verify all features are properly documented\n3. Check for technical accuracy of installation instructions\n4. Validate troubleshooting solutions actually resolve the issues\n5. Have non-technical users review for clarity and understandability"
+          },
+          {
+            "id": 2,
+            "title": "Implement In-App Help System",
+            "description": "Develop and integrate an in-app help system with contextual help tooltips and search functionality",
+            "dependencies": [
+              "15.1"
+            ],
+            "details": "1. Design help system UI components\n2. Implement help content display framework\n3. Create contextual help tooltips for UI elements\n4. Develop help search functionality with keyword indexing\n5. Implement help navigation system\n6. Add ability to open relevant documentation sections from within the app\n7. Create help system settings for user customization",
+            "status": "pending",
+            "testStrategy": "1. Test help system accessibility from all app sections\n2. Verify contextual tooltips display correct information\n3. Test search functionality with various queries\n4. Validate help navigation works correctly\n5. Test help system on different screen sizes and resolutions"
+          },
+          {
+            "id": 3,
+            "title": "Create Interactive Learning Resources",
+            "description": "Develop interactive tutorials, getting started wizard, and feature discovery tours",
+            "dependencies": [
+              "15.1",
+              "15.2"
+            ],
+            "details": "1. Design and implement getting started wizard for new users\n2. Create step-by-step interactive tutorials for main features\n3. Develop feature discovery tours highlighting key functionality\n4. Record and produce video tutorials for complex workflows\n5. Implement tutorial progress tracking\n6. Create interactive examples with sample data\n7. Design and implement tutorial navigation system",
+            "status": "pending",
+            "testStrategy": "1. Test wizard flow with new user accounts\n2. Verify all tutorials can be completed successfully\n3. Test feature tours on different screen sizes\n4. Validate video tutorial playback across platforms\n5. Test tutorial progress saving and resuming"
+          },
+          {
+            "id": 4,
+            "title": "Implement Documentation Management System",
+            "description": "Create system for documentation versioning, printable formats, and feedback collection",
+            "dependencies": [
+              "15.1"
+            ],
+            "details": "1. Implement documentation versioning to match application releases\n2. Create printable/PDF versions of all documentation\n3. Develop documentation feedback collection system\n4. Implement analytics to track most viewed documentation sections\n5. Create documentation update notification system\n6. Add community support links and resources\n7. Implement documentation export in multiple formats (PDF, HTML, etc.)",
+            "status": "pending",
+            "testStrategy": "1. Verify documentation versions match application versions\n2. Test PDF generation and formatting\n3. Validate feedback submission and storage\n4. Test analytics data collection accuracy\n5. Verify exported documentation in different formats displays correctly"
+          },
+          {
+            "id": 5,
+            "title": "Conduct Documentation Testing and Refinement",
+            "description": "Test documentation with users, collect feedback, and refine all documentation components",
+            "dependencies": [
+              "15.1",
+              "15.2",
+              "15.3",
+              "15.4"
+            ],
+            "details": "1. Organize user testing sessions for documentation review\n2. Collect and analyze user feedback on documentation clarity and completeness\n3. Identify and fix documentation gaps and errors\n4. Test documentation on different devices and screen sizes\n5. Verify all links and references are correct\n6. Optimize documentation search functionality\n7. Conduct final review and approval of all documentation components",
+            "status": "pending",
+            "testStrategy": "1. Track user completion rates for documentation-guided tasks\n2. Measure time spent finding specific information\n3. Collect user satisfaction ratings for documentation components\n4. Test documentation accessibility compliance\n5. Verify documentation renders correctly across different browsers and devices"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-04T22:09:15.847Z",
+      "updated": "2025-08-05T18:57:59.590Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
