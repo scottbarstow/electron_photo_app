@@ -9,15 +9,15 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react-jsx",
+    "lib": ["dom", "dom.iterable", "es6"]
   },
   "include": [
-    "src/index.ts",
-    "src/preload.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "src/renderer/**/*"
+    "dist"
   ]
 }

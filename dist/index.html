@@ -3,51 +3,488 @@
   <head>
     <meta charset="UTF-8">
     <title>Photo App</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <style>
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         margin: 0;
-        padding: 20px;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         background-color: #f5f5f5;
       }
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        background: white;
-        padding: 40px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
-      h1 {
-        color: #333;
-        text-align: center;
-        margin-bottom: 30px;
+      
+      button:hover:not(:disabled) {
+        opacity: 0.9;
+        transform: translateY(-1px);
       }
-      .status {
-        padding: 10px;
-        background: #e7f5e7;
-        border: 1px solid #b7e3b7;
+      
+      button:active:not(:disabled) {
+        transform: translateY(0);
+      }
+      
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
         border-radius: 4px;
-        color: #2d5a2d;
-        margin-bottom: 20px;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a1a1a1;
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h1>🗂️ Photo Management App</h1>
-      <div class="status">
-        ✅ Application loaded successfully without webpack errors!
-      </div>
-      <p>This is a clean Electron app without the __dirname bundling issues.</p>
-      <p>No webpack-dev-server code is bundled, so no __dirname errors!</p>
-    </div>
+    <div id="root"></div>
     <script>
-      // Test that electronAPI is available
+      // Simple React app without JSX compilation complexity
+      const { useState, useEffect } = React;
+      
+      // DirectorySelector Component
+      function DirectorySelector({ currentDirectory, onDirectorySelected, onClearDirectory, isLoading }) {
+        const handleSelectDirectory = async () => {
+          try {
+            const response = await window.electronAPI.openDirectory();
+            
+            if (response.success && response.data) {
+              onDirectorySelected(response.data);
+            } else if (response.error) {
+              console.error('Directory selection failed:', response.error);
+            }
+          } catch (error) {
+            console.error('Failed to open directory dialog:', error);
+          }
+        };
+
+        const styles = {
+          container: {
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            border: '1px solid #e1e8ed'
+          },
+          title: {
+            fontSize: '20px',
+            margin: '0 0 20px 0',
+            color: '#2c3e50',
+            fontWeight: '600'
+          },
+          noDirectoryState: {
+            textAlign: 'center',
+            padding: '40px 20px'
+          },
+          icon: {
+            fontSize: '48px',
+            marginBottom: '16px'
+          },
+          message: {
+            fontSize: '16px',
+            color: '#7f8c8d',
+            marginBottom: '24px',
+            lineHeight: '1.5'
+          },
+          primaryButton: {
+            backgroundColor: '#3498db',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease',
+            opacity: isLoading ? 0.6 : 1
+          },
+          directoryInfo: {
+            padding: '0'
+          },
+          directoryHeader: {
+            display: 'flex',
+            alignItems: 'flex-start',
+            marginBottom: '16px'
+          },
+          directoryIcon: {
+            fontSize: '24px',
+            marginRight: '12px',
+            marginTop: '2px'
+          },
+          directoryDetails: {
+            flex: 1,
+            minWidth: 0
+          },
+          directoryName: {
+            fontSize: '18px',
+            fontWeight: '600',
+            color: '#2c3e50',
+            marginBottom: '4px',
+            wordBreak: 'break-word'
+          },
+          directoryPath: {
+            fontSize: '14px',
+            color: '#7f8c8d',
+            fontFamily: 'Monaco, Consolas, monospace',
+            marginBottom: '4px',
+            wordBreak: 'break-all',
+            backgroundColor: '#f8f9fa',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            border: '1px solid #e9ecef'
+          },
+          lastAccessed: {
+            fontSize: '12px',
+            color: '#95a5a6',
+            fontStyle: 'italic'
+          },
+          warningMessage: {
+            backgroundColor: '#fff3cd',
+            color: '#856404',
+            padding: '12px',
+            borderRadius: '6px',
+            marginBottom: '16px',
+            border: '1px solid #ffeaa7'
+          },
+          buttonGroup: {
+            display: 'flex',
+            gap: '12px',
+            flexWrap: 'wrap'
+          },
+          secondaryButton: {
+            backgroundColor: '#95a5a6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '10px 20px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease',
+            opacity: isLoading ? 0.6 : 1
+          },
+          dangerButton: {
+            backgroundColor: '#e74c3c',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '10px 20px',
+            fontSize: '14px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease',
+            opacity: isLoading ? 0.6 : 1
+          }
+        };
+
+        return React.createElement('div', { style: styles.container },
+          React.createElement('h2', { style: styles.title }, '📁 Root Directory'),
+          
+          !currentDirectory ? 
+            React.createElement('div', { style: styles.noDirectoryState },
+              React.createElement('div', { style: styles.icon }, '🗂️'),
+              React.createElement('p', { style: styles.message }, 
+                'No root directory selected. Choose a folder containing your photos to get started.'
+              ),
+              React.createElement('button', {
+                onClick: handleSelectDirectory,
+                disabled: isLoading,
+                style: styles.primaryButton
+              }, isLoading ? 'Processing...' : 'Select Photo Directory')
+            ) :
+            React.createElement('div', { style: styles.directoryInfo },
+              React.createElement('div', { style: styles.directoryHeader },
+                React.createElement('div', { style: styles.directoryIcon }, 
+                  currentDirectory.isValid ? '📁' : '❌'
+                ),
+                React.createElement('div', { style: styles.directoryDetails },
+                  React.createElement('div', { style: styles.directoryName }, currentDirectory.name),
+                  React.createElement('div', { style: styles.directoryPath }, currentDirectory.path),
+                  currentDirectory.lastAccessed && React.createElement('div', { style: styles.lastAccessed }, 
+                    'Last accessed: ' + new Date(currentDirectory.lastAccessed).toLocaleString()
+                  )
+                )
+              ),
+              
+              !currentDirectory.isValid && React.createElement('div', { style: styles.warningMessage },
+                '⚠️ This directory is no longer accessible. Please select a new directory.'
+              ),
+              
+              React.createElement('div', { style: styles.buttonGroup },
+                React.createElement('button', {
+                  onClick: handleSelectDirectory,
+                  disabled: isLoading,
+                  style: styles.secondaryButton
+                }, 'Change Directory'),
+                React.createElement('button', {
+                  onClick: onClearDirectory,
+                  disabled: isLoading,
+                  style: styles.dangerButton
+                }, 'Clear Directory')
+              )
+            )
+        );
+      }
+
+      // Main App Component
+      function App() {
+        const [currentDirectory, setCurrentDirectory] = useState(null);
+        const [stats, setStats] = useState({ imageCount: 0, duplicateCount: 0 });
+        const [isLoading, setIsLoading] = useState(false);
+        const [error, setError] = useState(null);
+        const [fileEvents, setFileEvents] = useState([]);
+
+        useEffect(() => {
+          loadInitialData();
+          setupFileEventListeners();
+        }, []);
+
+        const loadInitialData = async () => {
+          try {
+            setIsLoading(true);
+            
+            const dirResponse = await window.electronAPI.directory.getRoot();
+            if (dirResponse.success && dirResponse.data) {
+              setCurrentDirectory(dirResponse.data);
+            }
+            
+            await loadStats();
+            
+          } catch (err) {
+            console.error('Failed to load initial data:', err);
+            setError('Failed to load application data');
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        const loadStats = async () => {
+          try {
+            const [imageCountResponse, duplicateCountResponse] = await Promise.all([
+              window.electronAPI.database.getImageCount(),
+              window.electronAPI.database.getDuplicateCount()
+            ]);
+
+            setStats({
+              imageCount: imageCountResponse.success ? imageCountResponse.data || 0 : 0,
+              duplicateCount: duplicateCountResponse.success ? duplicateCountResponse.data || 0 : 0,
+              lastScanTime: Date.now()
+            });
+          } catch (err) {
+            console.error('Failed to load stats:', err);
+          }
+        };
+
+        const setupFileEventListeners = () => {
+          window.electronAPI.directory.onFileAdded((filePath) => {
+            setFileEvents(prev => [...prev.slice(-9), 'Added: ' + filePath]);
+            loadStats();
+          });
+
+          window.electronAPI.directory.onFileRemoved((filePath) => {
+            setFileEvents(prev => [...prev.slice(-9), 'Removed: ' + filePath]);
+            loadStats();
+          });
+
+          window.electronAPI.directory.onFileChanged((filePath) => {
+            setFileEvents(prev => [...prev.slice(-9), 'Changed: ' + filePath]);
+          });
+
+          window.electronAPI.directory.onWatcherError((error) => {
+            console.error('Directory watcher error:', error);
+            setError('Directory watching error: ' + error);
+          });
+        };
+
+        const handleDirectorySelected = async (dirPath) => {
+          try {
+            setIsLoading(true);
+            setError(null);
+
+            const validResponse = await window.electronAPI.directory.isValid(dirPath);
+            if (!validResponse.success || !validResponse.data) {
+              throw new Error('Selected directory is not valid or accessible');
+            }
+
+            const setResponse = await window.electronAPI.directory.setRoot(dirPath);
+            if (!setResponse.success) {
+              throw new Error(setResponse.error || 'Failed to set directory');
+            }
+
+            setCurrentDirectory(setResponse.data);
+
+            const scanResponse = await window.electronAPI.directory.scan();
+            if (scanResponse.success) {
+              console.log('Directory scan completed:', scanResponse.data);
+            }
+
+            await loadStats();
+
+          } catch (err) {
+            console.error('Failed to set directory:', err);
+            setError(err.message || 'Failed to set directory');
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        const handleClearDirectory = async () => {
+          try {
+            setIsLoading(true);
+            setError(null);
+
+            const response = await window.electronAPI.directory.clearRoot();
+            if (response.success) {
+              setCurrentDirectory(null);
+              setStats({ imageCount: 0, duplicateCount: 0 });
+              setFileEvents([]);
+            } else {
+              throw new Error(response.error || 'Failed to clear directory');
+            }
+          } catch (err) {
+            console.error('Failed to clear directory:', err);
+            setError(err.message || 'Failed to clear directory');
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        const styles = {
+          container: {
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+            margin: 0,
+            padding: '20px',
+            backgroundColor: '#f5f5f5',
+            minHeight: '100vh',
+            color: '#333'
+          },
+          header: {
+            textAlign: 'center',
+            marginBottom: '30px'
+          },
+          title: {
+            fontSize: '28px',
+            margin: '0 0 10px 0',
+            color: '#2c3e50'
+          },
+          subtitle: {
+            fontSize: '14px',
+            color: '#7f8c8d',
+            margin: 0
+          },
+          errorBanner: {
+            backgroundColor: '#e74c3c',
+            color: 'white',
+            padding: '12px 16px',
+            borderRadius: '6px',
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          },
+          main: {
+            maxWidth: '800px',
+            margin: '0 auto',
+            position: 'relative'
+          },
+          statsSection: {
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            marginTop: '20px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          },
+          sectionTitle: {
+            fontSize: '18px',
+            margin: '0 0 16px 0',
+            color: '#2c3e50'
+          },
+          statsGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+            gap: '16px',
+            marginBottom: '16px'
+          },
+          statCard: {
+            textAlign: 'center',
+            padding: '16px',
+            backgroundColor: '#ecf0f1',
+            borderRadius: '6px'
+          },
+          statNumber: {
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#3498db',
+            marginBottom: '4px'
+          },
+          statLabel: {
+            fontSize: '12px',
+            color: '#7f8c8d',
+            textTransform: 'uppercase'
+          }
+        };
+
+        return React.createElement('div', { style: styles.container },
+          React.createElement('header', { style: styles.header },
+            React.createElement('h1', { style: styles.title }, '🗂️ Photo Management App'),
+            React.createElement('p', { style: styles.subtitle }, 'Clean Electron + React + TypeScript')
+          ),
+
+          error && React.createElement('div', { style: styles.errorBanner },
+            React.createElement('span', null, '❌ ' + error),
+            React.createElement('button', {
+              onClick: () => setError(null),
+              style: { background: 'none', border: 'none', color: 'white', fontSize: '18px', cursor: 'pointer', padding: '0 4px' }
+            }, '×')
+          ),
+
+          React.createElement('main', { style: styles.main },
+            React.createElement(DirectorySelector, {
+              currentDirectory,
+              onDirectorySelected: handleDirectorySelected,
+              onClearDirectory: handleClearDirectory,
+              isLoading
+            }),
+
+            currentDirectory && React.createElement('div', { style: styles.statsSection },
+              React.createElement('h3', { style: styles.sectionTitle }, '📊 Statistics'),
+              React.createElement('div', { style: styles.statsGrid },
+                React.createElement('div', { style: styles.statCard },
+                  React.createElement('div', { style: styles.statNumber }, stats.imageCount),
+                  React.createElement('div', { style: styles.statLabel }, 'Images')
+                ),
+                React.createElement('div', { style: styles.statCard },
+                  React.createElement('div', { style: styles.statNumber }, stats.duplicateCount),
+                  React.createElement('div', { style: styles.statLabel }, 'Duplicate Groups')
+                )
+              ),
+              stats.lastScanTime && React.createElement('p', { 
+                style: { fontSize: '12px', color: '#95a5a6', margin: 0, textAlign: 'center' } 
+              }, 'Last updated: ' + new Date(stats.lastScanTime).toLocaleTimeString())
+            )
+          )
+        );
+      }
+
+      // Wait for electronAPI to be available
       if (window.electronAPI) {
         console.log('✅ electronAPI is available from preload script');
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+        console.log('React app initialized successfully');
       } else {
         console.error('❌ electronAPI is not available');
+        document.getElementById('root').innerHTML = '<div style="padding: 20px; color: red;">❌ electronAPI is not available</div>';
       }
     </script>
   </body>
