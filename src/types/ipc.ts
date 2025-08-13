@@ -105,6 +105,25 @@ export interface TypedElectronAPI {
   // System methods
   getSystemInfo(): Promise<IpcResponse<SystemInfo>>;
 
+  // Directory methods
+  selectDirectory(): Promise<IpcResponse<string | null>>;
+  setRootDirectory(directoryPath: string): Promise<IpcResponse<boolean>>;
+  getRootDirectory(): Promise<IpcResponse<string | null>>;
+  getDirectoryInfo(
+    directoryPath?: string,
+  ): Promise<IpcResponse<DirectoryInfo | null>>;
+  getDirectoryStats(
+    directoryPath?: string,
+  ): Promise<IpcResponse<DirectoryStats | null>>;
+  validateDirectory(directoryPath: string): Promise<IpcResponse<DirectoryInfo>>;
+  clearDirectory(): Promise<IpcResponse<boolean>>;
+  startWatching(): Promise<IpcResponse<boolean>>;
+  stopWatching(): Promise<IpcResponse<boolean>>;
+  isWatching(): Promise<IpcResponse<boolean>>;
+  onDirectoryChanged(
+    callback: (event: DirectoryChangeEvent) => void,
+  ): () => void;
+
   // Event methods
   notifyRendererReady(): void;
   onWindowFocus(callback: () => void): () => void;
@@ -157,4 +176,32 @@ export interface ProgressInfo {
   total: number;
   percentage: number;
   message?: string;
+}
+
+// Directory types
+export interface DirectoryInfo {
+  path: string;
+  exists: boolean;
+  accessible: boolean;
+  isDirectory: boolean;
+  lastChecked: string;
+}
+
+export interface DirectoryStats {
+  totalFiles: number;
+  totalDirectories: number;
+  totalSize: number;
+  imageFiles: number;
+  lastScanned?: string;
+}
+
+export interface DirectoryChangeEvent {
+  type: 'add' | 'change' | 'unlink' | 'addDir' | 'unlinkDir';
+  path: string;
+  stats?: {
+    size: number;
+    isDirectory: boolean;
+    isFile: boolean;
+    modified: Date;
+  };
 }

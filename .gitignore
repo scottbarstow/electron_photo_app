@@ -90,3 +90,7 @@ typings/
 
 # Electron-Forge
 out/
+
+# MCP Configuration with API keys
+.mcp.json
+.cursor/mcp.json

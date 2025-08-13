@@ -1,6 +1,5 @@
 import { BrowserWindow, screen, app } from 'electron';
 import Store from 'electron-store';
-import * as path from 'path';
 
 // Window state interface
 interface WindowState {
@@ -53,7 +52,7 @@ export class WindowManager {
       minHeight: 600,
       show: false, // Don't show until ready-to-show
       webPreferences: {
-        preload: path.join(__dirname, 'preload.js'),
+        preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
         nodeIntegration: false,
         contextIsolation: true,
         webSecurity: true,

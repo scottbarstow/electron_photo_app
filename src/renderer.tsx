@@ -3,20 +3,18 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import {
   getAppInfo,
-  selectDirectory,
   showInfo,
   notifyRendererReady,
   setupWindowEventListeners,
 } from './renderer/ipc-helpers';
+import { DirectoryProvider } from './renderer/contexts/DirectoryContext';
+import DirectorySelector from './renderer/components/DirectorySelector';
 
 const App: React.FC = () => {
   const [appInfo, setAppInfo] = useState<{
     version: string;
     system: any;
   } | null>(null);
-  const [selectedDirectory, setSelectedDirectory] = useState<string | null>(
-    null,
-  );
   const [isWindowFocused, setIsWindowFocused] = useState(true);
 
   useEffect(() => {
@@ -52,14 +50,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleSelectDirectory = async () => {
-    const directory = await selectDirectory('Select Photo Directory');
-    if (directory) {
-      setSelectedDirectory(directory);
-      await showInfo(`Selected directory: ${directory}`, 'Directory Selected');
-    }
-  };
-
   const handleShowAppInfo = async () => {
     if (appInfo) {
       const infoText = `
@@ -78,6 +68,9 @@ const App: React.FC = () => {
       <header className='app-header'>
         <h1>Photo Management App</h1>
         <p>Welcome to your Electron + React + TypeScript application!</p>
+        <p style={{ fontSize: '14px', color: '#666' }}>
+          Directory management is now available below ⬇️
+        </p>
         <div
           style={{
             padding: '10px',
@@ -91,37 +84,18 @@ const App: React.FC = () => {
         </div>
       </header>
       <main className='app-main'>
-        <div className='feature-grid'>
-          <div className='feature-card'>
-            <h3>📁 Browse Folders</h3>
-            <p>Navigate through your photo directories with ease</p>
-            <button
-              onClick={handleSelectDirectory}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                marginTop: '10px',
-              }}
-            >
-              Select Directory
-            </button>
-            {selectedDirectory && (
-              <p style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
-                Selected: {selectedDirectory}
-              </p>
-            )}
-          </div>
+        <DirectorySelector />
+
+        <div className='feature-grid' style={{ marginTop: '40px' }}>
           <div className='feature-card'>
             <h3>🖼️ Preview Images</h3>
             <p>View your photos with zoom and navigation controls</p>
+            <p style={{ fontSize: '12px', color: '#888' }}>Coming soon...</p>
           </div>
           <div className='feature-card'>
             <h3>🔍 Find Duplicates</h3>
             <p>Automatically detect and manage duplicate photos</p>
+            <p style={{ fontSize: '12px', color: '#888' }}>Coming soon...</p>
           </div>
           <div className='feature-card'>
             <h3>ℹ️ App Information</h3>
@@ -150,7 +124,11 @@ const App: React.FC = () => {
 const container = document.getElementById('root');
 if (container) {
   const root = createRoot(container);
-  root.render(<App />);
+  root.render(
+    <DirectoryProvider>
+      <App />
+    </DirectoryProvider>,
+  );
 } else {
   console.error('Root element not found');
 }

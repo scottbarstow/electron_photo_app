@@ -1,6 +1,7 @@
 import { ipcMain, dialog, app, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { getDirectoryService } from './directory-service';
 
 // IPC channel constants
 export const IPC_CHANNELS = {
@@ -27,12 +28,25 @@ export const IPC_CHANNELS = {
   // System operations
   GET_SYSTEM_INFO: 'system:get-info',
 
+  // Directory operations
+  SELECT_DIRECTORY: 'directory:select',
+  SET_ROOT_DIRECTORY: 'directory:set-root',
+  GET_ROOT_DIRECTORY: 'directory:get-root',
+  GET_DIRECTORY_INFO: 'directory:get-info',
+  GET_DIRECTORY_STATS: 'directory:get-stats',
+  VALIDATE_DIRECTORY: 'directory:validate',
+  CLEAR_DIRECTORY: 'directory:clear',
+  START_WATCHING: 'directory:start-watching',
+  STOP_WATCHING: 'directory:stop-watching',
+  IS_WATCHING: 'directory:is-watching',
+
   // Events (renderer to main)
   RENDERER_READY: 'renderer:ready',
 
   // Events (main to renderer)
   WINDOW_FOCUS: 'window:focus',
   WINDOW_BLUR: 'window:blur',
+  DIRECTORY_CHANGED: 'directory:changed',
 } as const;
 
 // Type definitions for IPC responses
@@ -256,6 +270,128 @@ export const setupIpcHandlers = (): void => {
     }
   });
 
+  // Directory operation handlers
+  const directoryService = getDirectoryService();
+
+  ipcMain.handle(IPC_CHANNELS.SELECT_DIRECTORY, async () => {
+    try {
+      const focusedWindow = BrowserWindow.getFocusedWindow();
+      const selectedPath = await directoryService.selectDirectory(
+        focusedWindow || undefined,
+      );
+      return createSuccessResponse(selectedPath);
+    } catch (error) {
+      return createErrorResponse(`Failed to select directory: ${error}`);
+    }
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.SET_ROOT_DIRECTORY,
+    async (_, directoryPath: string) => {
+      try {
+        await directoryService.setRootDirectory(directoryPath);
+        return createSuccessResponse(true);
+      } catch (error) {
+        return createErrorResponse(`Failed to set root directory: ${error}`);
+      }
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.GET_ROOT_DIRECTORY, async () => {
+    try {
+      const rootDirectory = directoryService.getCurrentDirectory();
+      return createSuccessResponse(rootDirectory);
+    } catch (error) {
+      return createErrorResponse(`Failed to get root directory: ${error}`);
+    }
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.GET_DIRECTORY_INFO,
+    async (_, directoryPath?: string) => {
+      try {
+        const info = await directoryService.getDirectoryInfo(directoryPath);
+        return createSuccessResponse(info);
+      } catch (error) {
+        return createErrorResponse(`Failed to get directory info: ${error}`);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.GET_DIRECTORY_STATS,
+    async (_, directoryPath?: string) => {
+      try {
+        const stats = await directoryService.getDirectoryStats(directoryPath);
+        return createSuccessResponse(stats);
+      } catch (error) {
+        return createErrorResponse(`Failed to get directory stats: ${error}`);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.VALIDATE_DIRECTORY,
+    async (_, directoryPath: string) => {
+      try {
+        const info = await directoryService.validateDirectory(directoryPath);
+        return createSuccessResponse(info);
+      } catch (error) {
+        return createErrorResponse(`Failed to validate directory: ${error}`);
+      }
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.CLEAR_DIRECTORY, async () => {
+    try {
+      await directoryService.clearDirectory();
+      return createSuccessResponse(true);
+    } catch (error) {
+      return createErrorResponse(`Failed to clear directory: ${error}`);
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.START_WATCHING, async () => {
+    try {
+      await directoryService.startWatching();
+      return createSuccessResponse(true);
+    } catch (error) {
+      return createErrorResponse(`Failed to start watching: ${error}`);
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.STOP_WATCHING, async () => {
+    try {
+      await directoryService.stopWatching();
+      return createSuccessResponse(true);
+    } catch (error) {
+      return createErrorResponse(`Failed to stop watching: ${error}`);
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.IS_WATCHING, async () => {
+    try {
+      const isWatching = directoryService.isWatching();
+      return createSuccessResponse(isWatching);
+    } catch (error) {
+      return createErrorResponse(`Failed to check watching status: ${error}`);
+    }
+  });
+
+  // Set up directory change event forwarding
+  const unsubscribeFromDirectoryChanges = directoryService.onDirectoryChange(
+    event => {
+      // Send directory change events to all windows
+      BrowserWindow.getAllWindows().forEach(window => {
+        window.webContents.send(IPC_CHANNELS.DIRECTORY_CHANGED, event);
+      });
+    },
+  );
+
+  // Store the unsubscribe function for cleanup
+  (global as any).__directoryChangeUnsubscribe =
+    unsubscribeFromDirectoryChanges;
+
   // Event handlers (one-way communication)
   ipcMain.on(IPC_CHANNELS.RENDERER_READY, event => {
     console.log('Renderer process is ready');
@@ -279,6 +415,12 @@ export const setupWindowEventForwarding = (window: BrowserWindow): void => {
 
 // Cleanup IPC handlers
 export const cleanupIpcHandlers = (): void => {
+  // Cleanup directory change subscription
+  if ((global as any).__directoryChangeUnsubscribe) {
+    (global as any).__directoryChangeUnsubscribe();
+    delete (global as any).__directoryChangeUnsubscribe;
+  }
+
   // Remove all listeners for our channels
   Object.values(IPC_CHANNELS).forEach(channel => {
     ipcMain.removeAllListeners(channel);

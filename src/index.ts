@@ -7,6 +7,12 @@ import {
 import { getWindowManager } from './main/window-manager';
 import { getLogger } from './main/logger';
 import { getDevTools } from './main/dev-tools';
+import { initializeDatabase, closeDatabase } from './main/database';
+import { initializeRepositories } from './main/repositories';
+import {
+  initializeDirectoryService,
+  cleanupDirectoryService,
+} from './main/directory-service';
 
 // Initialize logger
 const logger = getLogger();
@@ -63,6 +69,18 @@ app.whenReady().then(async () => {
   logger.info('Electron app ready, initializing...');
 
   try {
+    // Initialize database first
+    await initializeDatabase();
+    logger.info('Database initialized successfully');
+
+    // Initialize repositories
+    initializeRepositories();
+    logger.info('Repositories initialized successfully');
+
+    // Initialize directory service
+    await initializeDirectoryService();
+    logger.info('Directory service initialized successfully');
+
     // Set up IPC handlers before creating windows
     setupIpcHandlers();
     logger.info('IPC handlers set up successfully');
@@ -102,6 +120,14 @@ app.on('before-quit', async () => {
 
     // Clean up IPC handlers
     cleanupIpcHandlers();
+
+    // Cleanup directory service
+    await cleanupDirectoryService();
+    logger.info('Directory service cleaned up');
+
+    // Close database connection
+    closeDatabase();
+    logger.info('Database connection closed');
 
     // Flush logger
     await logger.flush();
