@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
+const ipc_handlers_1 = require("./main/ipc-handlers");
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
     electron_1.app.quit();
@@ -57,7 +58,13 @@ const createWindow = () => {
 };
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-electron_1.app.whenReady().then(createWindow);
+electron_1.app.whenReady().then(() => {
+    // Setup IPC handlers
+    (0, ipc_handlers_1.setupIpcHandlers)();
+    (0, ipc_handlers_1.setupDirectoryEventForwarding)();
+    // Create the main window
+    createWindow();
+});
 // Quit when all windows are closed, except on macOS.
 electron_1.app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

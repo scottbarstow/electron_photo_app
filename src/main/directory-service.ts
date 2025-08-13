@@ -30,7 +30,7 @@ export interface FileInfo {
 }
 
 export class DirectoryService {
-  private store: Store;
+  private store: Store<any>;
   private watcher: FSWatcher | null = null;
   private currentRootPath: string | null = null;
   
