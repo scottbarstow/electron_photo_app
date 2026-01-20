@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "npm run build && electron dist/index.js",
-    "dev": "tsc -w & tsc -p tsconfig.renderer.json -w & wait-on dist/main.js && electron dist/main.js",
+    "dev": "tsc -w & wait-on dist/index.js && electron dist/index.js",
     "clean": "rm -rf dist"
   },
   "author": {
@@ -29,6 +29,7 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "electron": "^37.2.5",
+    "electron-rebuild": "^3.2.9",
     "typescript": "^5.9.2",
     "wait-on": "^8.0.0"
   }

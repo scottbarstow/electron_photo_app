@@ -148,6 +148,38 @@ function setupIpcHandlers() {
             return directoryService.isImageFile(filename);
         });
     });
+    // Directory tree handlers
+    electron_1.ipcMain.handle('directory:getTree', async (event, dirPath, maxDepth) => {
+        return handleAsyncIpc(async () => {
+            const directoryService = (0, directory_service_1.getDirectoryService)();
+            return await directoryService.getDirectoryTree(dirPath, maxDepth);
+        });
+    });
+    electron_1.ipcMain.handle('directory:expandNode', async (event, dirPath, maxDepth) => {
+        return handleAsyncIpc(async () => {
+            const directoryService = (0, directory_service_1.getDirectoryService)();
+            return await directoryService.expandDirectoryNode(dirPath, maxDepth);
+        });
+    });
+    electron_1.ipcMain.handle('directory:hasImages', async (event, dirPath, maxDepth) => {
+        return handleAsyncIpc(async () => {
+            const directoryService = (0, directory_service_1.getDirectoryService)();
+            return await directoryService.hasImagesInDirectory(dirPath, maxDepth);
+        });
+    });
+    electron_1.ipcMain.handle('directory:getImageCount', async (event, dirPath, recursive) => {
+        return handleAsyncIpc(async () => {
+            const directoryService = (0, directory_service_1.getDirectoryService)();
+            return await directoryService.getDirectoryImageCount(dirPath, recursive);
+        });
+    });
+    electron_1.ipcMain.handle('directory:clearTreeCache', async () => {
+        return handleAsyncIpc(async () => {
+            const directoryService = (0, directory_service_1.getDirectoryService)();
+            directoryService.clearDirectoryTreeCache();
+            return true;
+        });
+    });
     // Directory watching handlers
     electron_1.ipcMain.handle('directory:startWatching', async () => {
         return handleAsyncIpc(async () => {

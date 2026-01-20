@@ -29,10 +29,24 @@ export interface FileInfo {
   extension: string;
 }
 
+export interface DirectoryTreeNode {
+  path: string;
+  name: string;
+  type: 'directory' | 'file';
+  children?: DirectoryTreeNode[];
+  isExpanded?: boolean;
+  parent?: string;
+  depth: number;
+  hasImages?: boolean;
+  imageCount?: number;
+  isLoaded?: boolean;
+}
+
 export class DirectoryService {
   private store: Store<any>;
   private watcher: FSWatcher | null = null;
   private currentRootPath: string | null = null;
+  private directoryTreeCache: Map<string, DirectoryTreeNode[]> = new Map();
   
   // Supported image extensions
   private readonly imageExtensions = new Set([
@@ -73,7 +87,24 @@ export class DirectoryService {
   isValidDirectory(dirPath: string): boolean {
     try {
       const stats = fs.statSync(dirPath);
-      return stats.isDirectory() && this.hasReadAccess(dirPath);
+      return stats.isDirectory() && this.hasReadAccess(dirPath) && this.isPathSafe(dirPath);
+    } catch {
+      return false;
+    }
+  }
+
+  private isPathSafe(targetPath: string): boolean {
+    if (!this.currentRootPath) {
+      return true; // Allow any path if no root is set
+    }
+
+    try {
+      // Resolve paths to prevent directory traversal
+      const resolvedTarget = path.resolve(targetPath);
+      const resolvedRoot = path.resolve(this.currentRootPath);
+      
+      // Ensure target is within or equal to root directory
+      return resolvedTarget.startsWith(resolvedRoot);
     } catch {
       return false;
     }
@@ -96,6 +127,9 @@ export class DirectoryService {
 
     // Stop watching previous directory
     this.stopWatching();
+
+    // Clear directory tree cache
+    this.clearDirectoryTreeCache();
 
     // Update current path and persist
     this.currentRootPath = dirPath;
@@ -137,6 +171,7 @@ export class DirectoryService {
 
   clearRootDirectory(): void {
     this.stopWatching();
+    this.clearDirectoryTreeCache();
     this.currentRootPath = null;
     this.store.delete('rootDirectory');
   }
@@ -205,6 +240,204 @@ export class DirectoryService {
     } catch {
       // Skip directories that can't be accessed
     }
+  }
+
+  // Directory tree operations
+  async getDirectoryTree(dirPath?: string, maxDepth: number = 3): Promise<DirectoryTreeNode[]> {
+    const targetPath = dirPath || this.currentRootPath;
+    if (!targetPath || !this.isValidDirectory(targetPath)) {
+      throw new Error('Invalid directory path');
+    }
+
+    // Check cache first
+    const cacheKey = `${targetPath}:${maxDepth}`;
+    if (this.directoryTreeCache.has(cacheKey)) {
+      return this.directoryTreeCache.get(cacheKey)!;
+    }
+
+    const rootNode = await this.buildDirectoryTreeRecursive(targetPath, 0, maxDepth);
+    const tree = rootNode ? [rootNode] : [];
+    
+    // Cache the result
+    this.directoryTreeCache.set(cacheKey, tree);
+    
+    return tree;
+  }
+
+  private async buildDirectoryTreeRecursive(
+    dirPath: string,
+    currentDepth: number,
+    maxDepth: number,
+    parent?: string
+  ): Promise<DirectoryTreeNode | null> {
+    if (currentDepth > maxDepth || !this.isValidDirectory(dirPath)) {
+      return null;
+    }
+
+    const excludePatterns = this.store.get('excludePatterns') as string[];
+    const name = path.basename(dirPath);
+    
+    // Skip excluded directories
+    if (excludePatterns.some(pattern => name.includes(pattern))) {
+      return null;
+    }
+
+    try {
+      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      const children: DirectoryTreeNode[] = [];
+      let hasImages = false;
+      let imageCount = 0;
+
+      // Process directory entries
+      for (const entry of entries) {
+        if (excludePatterns.some(pattern => entry.name.includes(pattern))) {
+          continue;
+        }
+
+        const fullPath = path.join(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          // Recursively build subdirectory tree
+          if (currentDepth < maxDepth) {
+            const childNode = await this.buildDirectoryTreeRecursive(
+              fullPath,
+              currentDepth + 1,
+              maxDepth,
+              dirPath
+            );
+            if (childNode) {
+              children.push(childNode);
+              if (childNode.hasImages) {
+                hasImages = true;
+                imageCount += childNode.imageCount || 0;
+              }
+            }
+          } else {
+            // Create placeholder for unexplored directories
+            const hasSubImages = await this.hasImagesInDirectory(fullPath, 1);
+            children.push({
+              path: fullPath,
+              name: entry.name,
+              type: 'directory',
+              depth: currentDepth + 1,
+              parent: dirPath,
+              hasImages: hasSubImages,
+              isLoaded: false
+            });
+            if (hasSubImages) {
+              hasImages = true;
+            }
+          }
+        } else if (entry.isFile() && this.isImageFile(entry.name)) {
+          hasImages = true;
+          imageCount++;
+        }
+      }
+
+      // Sort children: directories first, then alphabetically
+      children.sort((a, b) => {
+        if (a.type !== b.type) {
+          return a.type === 'directory' ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      return {
+        path: dirPath,
+        name: name,
+        type: 'directory',
+        children,
+        depth: currentDepth,
+        parent,
+        hasImages,
+        imageCount,
+        isLoaded: true,
+        isExpanded: currentDepth === 0 // Root is expanded by default
+      };
+    } catch (error) {
+      console.error(`Error reading directory ${dirPath}:`, error);
+      return null;
+    }
+  }
+
+  async expandDirectoryNode(dirPath: string, maxDepth: number = 2): Promise<DirectoryTreeNode[]> {
+    if (!this.isValidDirectory(dirPath)) {
+      throw new Error('Invalid directory path');
+    }
+
+    return await this.getDirectoryTree(dirPath, maxDepth);
+  }
+
+  async hasImagesInDirectory(dirPath: string, maxDepth: number = 1): Promise<boolean> {
+    if (!this.isValidDirectory(dirPath) || maxDepth <= 0) {
+      return false;
+    }
+
+    try {
+      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      const excludePatterns = this.store.get('excludePatterns') as string[];
+
+      // Check for images in current directory
+      for (const entry of entries) {
+        if (excludePatterns.some(pattern => entry.name.includes(pattern))) {
+          continue;
+        }
+
+        if (entry.isFile() && this.isImageFile(entry.name)) {
+          return true;
+        }
+      }
+
+      // Recursively check subdirectories if depth allows
+      if (maxDepth > 1) {
+        for (const entry of entries) {
+          if (entry.isDirectory() && 
+              !excludePatterns.some(pattern => entry.name.includes(pattern))) {
+            const fullPath = path.join(dirPath, entry.name);
+            if (await this.hasImagesInDirectory(fullPath, maxDepth - 1)) {
+              return true;
+            }
+          }
+        }
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  async getDirectoryImageCount(dirPath: string, recursive: boolean = false): Promise<number> {
+    if (!this.isValidDirectory(dirPath)) {
+      return 0;
+    }
+
+    let count = 0;
+    try {
+      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      const excludePatterns = this.store.get('excludePatterns') as string[];
+
+      for (const entry of entries) {
+        if (excludePatterns.some(pattern => entry.name.includes(pattern))) {
+          continue;
+        }
+
+        if (entry.isFile() && this.isImageFile(entry.name)) {
+          count++;
+        } else if (recursive && entry.isDirectory()) {
+          const fullPath = path.join(dirPath, entry.name);
+          count += await this.getDirectoryImageCount(fullPath, true);
+        }
+      }
+    } catch {
+      // Return 0 if directory can't be read
+    }
+
+    return count;
+  }
+
+  clearDirectoryTreeCache(): void {
+    this.directoryTreeCache.clear();
   }
 
   // File operations

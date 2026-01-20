@@ -138,6 +138,43 @@ export function setupIpcHandlers(): void {
     });
   });
 
+  // Directory tree handlers
+  ipcMain.handle('directory:getTree', async (event, dirPath?: string, maxDepth?: number) => {
+    return handleAsyncIpc(async () => {
+      const directoryService = getDirectoryService();
+      return await directoryService.getDirectoryTree(dirPath, maxDepth);
+    });
+  });
+
+  ipcMain.handle('directory:expandNode', async (event, dirPath: string, maxDepth?: number) => {
+    return handleAsyncIpc(async () => {
+      const directoryService = getDirectoryService();
+      return await directoryService.expandDirectoryNode(dirPath, maxDepth);
+    });
+  });
+
+  ipcMain.handle('directory:hasImages', async (event, dirPath: string, maxDepth?: number) => {
+    return handleAsyncIpc(async () => {
+      const directoryService = getDirectoryService();
+      return await directoryService.hasImagesInDirectory(dirPath, maxDepth);
+    });
+  });
+
+  ipcMain.handle('directory:getImageCount', async (event, dirPath: string, recursive?: boolean) => {
+    return handleAsyncIpc(async () => {
+      const directoryService = getDirectoryService();
+      return await directoryService.getDirectoryImageCount(dirPath, recursive);
+    });
+  });
+
+  ipcMain.handle('directory:clearTreeCache', async () => {
+    return handleAsyncIpc(async () => {
+      const directoryService = getDirectoryService();
+      directoryService.clearDirectoryTreeCache();
+      return true;
+    });
+  });
+
   // Directory watching handlers
   ipcMain.handle('directory:startWatching', async () => {
     return handleAsyncIpc(async () => {
