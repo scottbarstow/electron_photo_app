@@ -84,9 +84,16 @@ class DirectoryService {
     isValidDirectory(dirPath) {
         try {
             const stats = fs.statSync(dirPath);
-            return stats.isDirectory() && this.hasReadAccess(dirPath) && this.isPathSafe(dirPath);
+            const isDir = stats.isDirectory();
+            const hasAccess = this.hasReadAccess(dirPath);
+            const isSafe = this.isPathSafe(dirPath);
+            if (!isDir || !hasAccess || !isSafe) {
+                console.log('isValidDirectory failed for:', dirPath, { isDir, hasAccess, isSafe, currentRoot: this.currentRootPath });
+            }
+            return isDir && hasAccess && isSafe;
         }
-        catch {
+        catch (err) {
+            console.log('isValidDirectory error for:', dirPath, err);
             return false;
         }
     }
@@ -99,7 +106,10 @@ class DirectoryService {
             const resolvedTarget = path.resolve(targetPath);
             const resolvedRoot = path.resolve(this.currentRootPath);
             // Ensure target is within or equal to root directory
-            return resolvedTarget.startsWith(resolvedRoot);
+            // Add trailing separator to avoid partial matches like /foo matching /foobar
+            const isWithinRoot = resolvedTarget === resolvedRoot ||
+                resolvedTarget.startsWith(resolvedRoot + path.sep);
+            return isWithinRoot;
         }
         catch {
             return false;
@@ -417,13 +427,32 @@ class DirectoryService {
         }
         const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
         const subdirs = [];
+        // macOS package extensions to exclude
+        const packageExtensions = [
+            '.photoslibrary', '.photolibrary', '.app', '.bundle',
+            '.framework', '.plugin', '.kext', '.xcodeproj', '.xcworkspace'
+        ];
         for (const entry of entries) {
             if (entry.isDirectory()) {
                 const fullPath = path.join(dirPath, entry.name);
-                // Skip hidden and excluded directories
-                if (!entry.name.startsWith('.')) {
-                    subdirs.push(fullPath);
+                const lowerName = entry.name.toLowerCase();
+                // Skip hidden directories
+                if (entry.name.startsWith('.')) {
+                    continue;
                 }
+                // Skip macOS package directories
+                if (packageExtensions.some(ext => lowerName.endsWith(ext))) {
+                    continue;
+                }
+                // Skip "Photo Booth Library" specifically (it's a package without extension)
+                if (entry.name === 'Photo Booth Library') {
+                    continue;
+                }
+                // Skip directories we can't read
+                if (!this.hasReadAccess(fullPath)) {
+                    continue;
+                }
+                subdirs.push(fullPath);
             }
         }
         return subdirs.sort();
@@ -443,7 +472,13 @@ class DirectoryService {
         }
         try {
             this.watcher = (0, chokidar_1.watch)(this.currentRootPath, {
-                ignored: /(^|[\/\\])\../, // ignore dotfiles
+                ignored: [
+                    /(^|[\/\\])\../, // ignore dotfiles
+                    /\.photoslibrary$/, // macOS Photos library
+                    /\.photolibrary$/,
+                    /\.app$/,
+                    /Photo Booth Library$/ // macOS Photo Booth
+                ],
                 persistent: true,
                 depth: 3, // Limit depth for performance
                 ignoreInitial: true

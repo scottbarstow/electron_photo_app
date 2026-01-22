@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DirectorySelector } from './components/DirectorySelector';
+import { SplitPane } from './components/SplitPane';
+import { FolderTree, FolderNode } from './components/FolderTree';
+import { ThumbnailGrid, ImageItem } from './components/ThumbnailGrid';
 
 // Define the electronAPI interface for TypeScript
 interface ElectronAPI {
@@ -9,6 +12,8 @@ interface ElectronAPI {
     getRoot: () => Promise<{ success: boolean; data?: any; error?: string }>;
     clearRoot: () => Promise<{ success: boolean; data?: boolean; error?: string }>;
     scan: (dirPath?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+    getContents: (dirPath: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+    getSubdirectories: (dirPath: string) => Promise<{ success: boolean; data?: string[]; error?: string }>;
     isValid: (dirPath: string) => Promise<{ success: boolean; data?: boolean; error?: string }>;
     onFileAdded: (callback: (filePath: string) => void) => void;
     onFileRemoved: (callback: (filePath: string) => void) => void;
@@ -18,6 +23,10 @@ interface ElectronAPI {
   database: {
     getImageCount: () => Promise<{ success: boolean; data?: number; error?: string }>;
     getDuplicateCount: () => Promise<{ success: boolean; data?: number; error?: string }>;
+    getImagesByDirectory: (directory: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+  };
+  thumbnail: {
+    getAsDataUrl: (imagePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
   };
 }
 
@@ -40,12 +49,19 @@ interface AppStats {
   lastScanTime?: number;
 }
 
+type AppView = 'setup' | 'browser';
+
 export const App: React.FC = () => {
   const [currentDirectory, setCurrentDirectory] = useState<DirectoryInfo | null>(null);
   const [stats, setStats] = useState<AppStats>({ imageCount: 0, duplicateCount: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileEvents, setFileEvents] = useState<string[]>([]);
+  const [view, setView] = useState<AppView>('setup');
+
+  // Browser state
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
 
   // Load initial directory and stats on component mount
   useEffect(() => {
@@ -53,19 +69,38 @@ export const App: React.FC = () => {
     setupFileEventListeners();
   }, []);
 
+  // Switch to browser view when directory is set
+  useEffect(() => {
+    if (currentDirectory && currentDirectory.isValid) {
+      setView('browser');
+      setSelectedFolderPath(currentDirectory.path);
+    } else {
+      setView('setup');
+    }
+  }, [currentDirectory]);
+
+  // Load images when folder selection changes
+  useEffect(() => {
+    if (selectedFolderPath) {
+      loadImagesForFolder(selectedFolderPath);
+    } else {
+      setImages([]);
+    }
+  }, [selectedFolderPath]);
+
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load current directory
       const dirResponse = await window.electronAPI.directory.getRoot();
       if (dirResponse.success && dirResponse.data) {
         setCurrentDirectory(dirResponse.data);
       }
-      
+
       // Load database stats
       await loadStats();
-      
+
     } catch (err) {
       console.error('Failed to load initial data:', err);
       setError('Failed to load application data');
@@ -92,25 +127,64 @@ export const App: React.FC = () => {
   };
 
   const setupFileEventListeners = () => {
-    // Listen for file changes
-    window.electronAPI.directory.onFileAdded((filePath) => {
-      setFileEvents(prev => [...prev.slice(-9), `Added: ${filePath}`]);
-      loadStats(); // Refresh stats when files change
-    });
-
-    window.electronAPI.directory.onFileRemoved((filePath) => {
-      setFileEvents(prev => [...prev.slice(-9), `Removed: ${filePath}`]);
+    window.electronAPI.directory.onFileAdded(() => {
       loadStats();
+      if (selectedFolderPath) {
+        loadImagesForFolder(selectedFolderPath);
+      }
     });
 
-    window.electronAPI.directory.onFileChanged((filePath) => {
-      setFileEvents(prev => [...prev.slice(-9), `Changed: ${filePath}`]);
+    window.electronAPI.directory.onFileRemoved(() => {
+      loadStats();
+      if (selectedFolderPath) {
+        loadImagesForFolder(selectedFolderPath);
+      }
     });
 
     window.electronAPI.directory.onWatcherError((error) => {
       console.error('Directory watcher error:', error);
       setError(`Directory watching error: ${error}`);
     });
+  };
+
+  const loadImagesForFolder = async (folderPath: string) => {
+    try {
+      console.log('Loading images for folder:', folderPath);
+
+      // First try to get from database
+      const dbResponse = await window.electronAPI.database.getImagesByDirectory(folderPath);
+      console.log('Database response:', dbResponse);
+
+      if (dbResponse.success && dbResponse.data && dbResponse.data.length > 0) {
+        console.log('Found', dbResponse.data.length, 'images in database');
+        setImages(dbResponse.data.map(img => ({
+          id: img.id,
+          path: img.path,
+          filename: img.filename
+        })));
+      } else {
+        // Fall back to directory contents
+        console.log('Falling back to directory contents');
+        const contentsResponse = await window.electronAPI.directory.getContents(folderPath);
+        console.log('Directory contents response:', contentsResponse);
+
+        if (contentsResponse.success && contentsResponse.data) {
+          const imageFiles = contentsResponse.data.filter(file => file.isImage);
+          console.log('Found', imageFiles.length, 'image files in directory');
+          setImages(imageFiles.map((file, index) => ({
+            id: index,
+            path: file.path,
+            filename: file.name
+          })));
+        } else {
+          console.log('Failed to get directory contents:', contentsResponse.error);
+          setImages([]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load images:', err);
+      setImages([]);
+    }
   };
 
   const handleDirectorySelected = async (dirPath: string) => {
@@ -158,7 +232,9 @@ export const App: React.FC = () => {
       if (response.success) {
         setCurrentDirectory(null);
         setStats({ imageCount: 0, duplicateCount: 0 });
-        setFileEvents([]);
+        setSelectedFolderPath(null);
+        setImages([]);
+        setSelectedImageIds(new Set());
       } else {
         throw new Error(response.error || 'Failed to clear directory');
       }
@@ -170,206 +246,214 @@ export const App: React.FC = () => {
     }
   };
 
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>🗂️ Photo Management App</h1>
-        <p style={styles.subtitle}>Clean Electron + React + TypeScript</p>
-      </header>
+  const handleSelectFolder = useCallback((path: string) => {
+    setSelectedFolderPath(path);
+    setSelectedImageIds(new Set());
+  }, []);
 
-      {error && (
-        <div style={styles.errorBanner}>
-          <span>❌ {error}</span>
-          <button 
-            onClick={() => setError(null)}
-            style={styles.closeButton}
-          >
-            ×
-          </button>
-        </div>
-      )}
+  const handleLoadFolderChildren = useCallback(async (path: string): Promise<FolderNode[]> => {
+    try {
+      const subdirs = await window.electronAPI.directory.getSubdirectories(path);
+      if (!subdirs.success || !subdirs.data) return [];
 
-      <main style={styles.main}>
-        <DirectorySelector
-          currentDirectory={currentDirectory}
-          onDirectorySelected={handleDirectorySelected}
-          onClearDirectory={handleClearDirectory}
-          isLoading={isLoading}
-        />
+      const nodes: FolderNode[] = [];
+      for (const subdirPath of subdirs.data) {
+        const name = subdirPath.split('/').pop() || subdirPath;
+        const contentsResponse = await window.electronAPI.directory.getContents(subdirPath);
+        const imageCount = contentsResponse.success
+          ? (contentsResponse.data || []).filter(f => f.isImage).length
+          : 0;
 
-        {currentDirectory && (
-          <div style={styles.statsSection}>
-            <h3 style={styles.sectionTitle}>📊 Statistics</h3>
-            <div style={styles.statsGrid}>
-              <div style={styles.statCard}>
-                <div style={styles.statNumber}>{stats.imageCount}</div>
-                <div style={styles.statLabel}>Images</div>
-              </div>
-              <div style={styles.statCard}>
-                <div style={styles.statNumber}>{stats.duplicateCount}</div>
-                <div style={styles.statLabel}>Duplicate Groups</div>
-              </div>
-            </div>
-            {stats.lastScanTime && (
-              <p style={styles.lastScan}>
-                Last updated: {new Date(stats.lastScanTime).toLocaleTimeString()}
-              </p>
-            )}
+        nodes.push({
+          path: subdirPath,
+          name,
+          hasImages: imageCount > 0,
+          imageCount,
+          isLoaded: false,
+          isExpanded: false,
+          depth: 1
+        });
+      }
+
+      return nodes;
+    } catch (err) {
+      console.error('Failed to load folder children:', err);
+      return [];
+    }
+  }, []);
+
+  const handleSelectImage = useCallback((id: number, multiSelect: boolean) => {
+    setSelectedImageIds(prev => {
+      const next = new Set(multiSelect ? prev : []);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDoubleClickImage = useCallback((id: number) => {
+    // TODO: Open image detail view
+    console.log('Open image:', id);
+  }, []);
+
+  const handleLoadThumbnail = useCallback(async (imagePath: string): Promise<string> => {
+    try {
+      const response = await window.electronAPI.thumbnail.getAsDataUrl(imagePath);
+      if (response.success && response.data) {
+        return response.data;
+      }
+      return '';
+    } catch (err) {
+      console.error('Failed to load thumbnail:', err);
+      return '';
+    }
+  }, []);
+
+  // Render setup view
+  if (view === 'setup') {
+    return (
+      <div className="min-h-screen bg-gray-100 p-5 text-gray-800">
+        <header className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Photo Management App</h1>
+          <p className="text-sm text-gray-500">Electron + React + TypeScript</p>
+        </header>
+
+        {error && (
+          <div className="bg-red-500 text-white px-4 py-3 rounded-lg mb-5 flex justify-between items-center max-w-3xl mx-auto">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="bg-transparent border-none text-white text-lg cursor-pointer px-1 hover:opacity-80"
+            >
+              x
+            </button>
           </div>
         )}
 
-        {fileEvents.length > 0 && (
-          <div style={styles.eventsSection}>
-            <h3 style={styles.sectionTitle}>📝 Recent File Events</h3>
-            <div style={styles.eventsList}>
-              {fileEvents.map((event, index) => (
-                <div key={index} style={styles.eventItem}>
-                  {event}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <main className="max-w-3xl mx-auto">
+          <DirectorySelector
+            currentDirectory={currentDirectory}
+            onDirectorySelected={handleDirectorySelected}
+            onClearDirectory={handleClearDirectory}
+            isLoading={isLoading}
+          />
+        </main>
 
         {isLoading && (
-          <div style={styles.loadingOverlay}>
-            <div style={styles.spinner}></div>
+          <div className="fixed inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
+            <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
             <p>Processing...</p>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // Render browser view
+  return (
+    <div className="h-screen flex flex-col bg-gray-100">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-gray-800">Photo App</h1>
+          <span className="text-sm text-gray-400">|</span>
+          <span className="text-sm text-gray-500 truncate max-w-md">
+            {currentDirectory?.path}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-gray-500">
+            <span className="font-medium text-blue-600">{stats.imageCount}</span> images
+            {stats.duplicateCount > 0 && (
+              <>
+                <span className="mx-2">|</span>
+                <span className="font-medium text-orange-500">{stats.duplicateCount}</span> duplicate groups
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={() => setView('setup')}
+            className="text-sm text-gray-600 hover:text-gray-800"
+          >
+            Settings
+          </button>
+        </div>
+      </header>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-500 text-white px-4 py-2 flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="hover:opacity-80">x</button>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden">
+        <SplitPane
+          leftPanel={
+            <FolderTree
+              rootPath={currentDirectory?.path || null}
+              selectedPath={selectedFolderPath}
+              onSelectFolder={handleSelectFolder}
+              onLoadChildren={handleLoadFolderChildren}
+              className="h-full"
+            />
+          }
+          rightPanel={
+            <div className="h-full w-full bg-white">
+              {/* Toolbar */}
+              <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {selectedFolderPath ? (
+                    <>
+                      <span className="font-medium">{images.length}</span> images
+                      {selectedImageIds.size > 0 && (
+                        <span className="ml-2 text-blue-600">
+                          ({selectedImageIds.size} selected)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    'Select a folder'
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* TODO: Add view mode toggle, sort options */}
+                </div>
+              </div>
+
+              {/* Thumbnail Grid */}
+              <div className="h-[calc(100%-48px)] w-full">
+                <ThumbnailGrid
+                  images={images}
+                  selectedIds={selectedImageIds}
+                  onSelectImage={handleSelectImage}
+                  onDoubleClickImage={handleDoubleClickImage}
+                  onLoadThumbnail={handleLoadThumbnail}
+                />
+              </div>
+            </div>
+          }
+          defaultLeftWidth={280}
+          minLeftWidth={200}
+          maxLeftWidth={400}
+        />
       </main>
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/50 flex flex-col items-center justify-center text-white z-50">
+          <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+          <p>Processing...</p>
+        </div>
+      )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    margin: 0,
-    padding: '20px',
-    backgroundColor: '#f5f5f5',
-    minHeight: '100vh',
-    color: '#333'
-  },
-  header: {
-    textAlign: 'center' as const,
-    marginBottom: '30px'
-  },
-  title: {
-    fontSize: '28px',
-    margin: '0 0 10px 0',
-    color: '#2c3e50'
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#7f8c8d',
-    margin: 0
-  },
-  errorBanner: {
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    padding: '12px 16px',
-    borderRadius: '6px',
-    marginBottom: '20px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  closeButton: {
-    background: 'none',
-    border: 'none',
-    color: 'white',
-    fontSize: '18px',
-    cursor: 'pointer',
-    padding: '0 4px'
-  },
-  main: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    position: 'relative' as const
-  },
-  statsSection: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    marginTop: '20px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-  },
-  sectionTitle: {
-    fontSize: '18px',
-    margin: '0 0 16px 0',
-    color: '#2c3e50'
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-    gap: '16px',
-    marginBottom: '16px'
-  },
-  statCard: {
-    textAlign: 'center' as const,
-    padding: '16px',
-    backgroundColor: '#ecf0f1',
-    borderRadius: '6px'
-  },
-  statNumber: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#3498db',
-    marginBottom: '4px'
-  },
-  statLabel: {
-    fontSize: '12px',
-    color: '#7f8c8d',
-    textTransform: 'uppercase' as const
-  },
-  lastScan: {
-    fontSize: '12px',
-    color: '#95a5a6',
-    margin: 0,
-    textAlign: 'center' as const
-  },
-  eventsSection: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    marginTop: '20px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-  },
-  eventsList: {
-    maxHeight: '200px',
-    overflowY: 'auto' as const
-  },
-  eventItem: {
-    padding: '8px 12px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-    marginBottom: '8px',
-    fontSize: '13px',
-    fontFamily: 'Monaco, Consolas, monospace',
-    color: '#495057'
-  },
-  loadingOverlay: {
-    position: 'fixed' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'white',
-    fontSize: '16px'
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid rgba(255,255,255,0.3)',
-    borderTop: '4px solid white',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    marginBottom: '16px'
-  }
 };

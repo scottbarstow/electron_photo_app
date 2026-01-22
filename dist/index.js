@@ -40,6 +40,7 @@ const ipc_handlers_1 = require("./main/ipc-handlers");
 if (require('electron-squirrel-startup')) {
     electron_1.app.quit();
 }
+const isDev = process.env.NODE_ENV !== 'production' && !electron_1.app.isPackaged;
 const createWindow = () => {
     // Create the browser window.
     const mainWindow = new electron_1.BrowserWindow({
@@ -51,9 +52,14 @@ const createWindow = () => {
             preload: path.join(__dirname, 'preload.js'),
         },
     });
-    // Load the app
-    mainWindow.loadFile(path.join(__dirname, 'index.html'));
-    // Open the DevTools automatically
+    // Load the app - use Vite dev server in development, built files in production
+    if (isDev) {
+        mainWindow.loadURL('http://localhost:5173');
+    }
+    else {
+        mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+    }
+    // Open the DevTools (always open for debugging)
     mainWindow.webContents.openDevTools();
 };
 // This method will be called when Electron has finished

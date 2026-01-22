@@ -7,6 +7,8 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
+
 const createWindow = (): void => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -19,10 +21,14 @@ const createWindow = (): void => {
     },
   });
 
-  // Load the app
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  // Load the app - use Vite dev server in development, built files in production
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+  }
 
-  // Open the DevTools automatically
+  // Open the DevTools (always open for debugging)
   mainWindow.webContents.openDevTools();
 };
 
