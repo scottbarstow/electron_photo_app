@@ -76,6 +76,32 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
         getImageCount: () => electron_1.ipcRenderer.invoke('database:getImageCount'),
         getDuplicateCount: () => electron_1.ipcRenderer.invoke('database:getDuplicateCount')
     },
+    // Tag methods
+    tags: {
+        create: (name, color) => electron_1.ipcRenderer.invoke('tags:create', name, color),
+        get: (id) => electron_1.ipcRenderer.invoke('tags:get', id),
+        getByName: (name) => electron_1.ipcRenderer.invoke('tags:getByName', name),
+        getAll: () => electron_1.ipcRenderer.invoke('tags:getAll'),
+        update: (id, updates) => electron_1.ipcRenderer.invoke('tags:update', id, updates),
+        delete: (id) => electron_1.ipcRenderer.invoke('tags:delete', id),
+        addToImage: (imageId, tagId) => electron_1.ipcRenderer.invoke('tags:addToImage', imageId, tagId),
+        removeFromImage: (imageId, tagId) => electron_1.ipcRenderer.invoke('tags:removeFromImage', imageId, tagId),
+        getForImage: (imageId) => electron_1.ipcRenderer.invoke('tags:getForImage', imageId),
+        getImages: (tagId) => electron_1.ipcRenderer.invoke('tags:getImages', tagId)
+    },
+    // Album methods
+    albums: {
+        create: (name, description) => electron_1.ipcRenderer.invoke('albums:create', name, description),
+        get: (id) => electron_1.ipcRenderer.invoke('albums:get', id),
+        getAll: () => electron_1.ipcRenderer.invoke('albums:getAll'),
+        update: (id, updates) => electron_1.ipcRenderer.invoke('albums:update', id, updates),
+        delete: (id) => electron_1.ipcRenderer.invoke('albums:delete', id),
+        addImage: (albumId, imageId, position) => electron_1.ipcRenderer.invoke('albums:addImage', albumId, imageId, position),
+        removeImage: (albumId, imageId) => electron_1.ipcRenderer.invoke('albums:removeImage', albumId, imageId),
+        getImages: (albumId) => electron_1.ipcRenderer.invoke('albums:getImages', albumId),
+        getForImage: (imageId) => electron_1.ipcRenderer.invoke('albums:getForImage', imageId),
+        reorderImages: (albumId, imageIds) => electron_1.ipcRenderer.invoke('albums:reorderImages', albumId, imageIds)
+    },
     // Thumbnail service methods
     thumbnail: {
         get: (imagePath) => electron_1.ipcRenderer.invoke('thumbnail:get', imagePath),

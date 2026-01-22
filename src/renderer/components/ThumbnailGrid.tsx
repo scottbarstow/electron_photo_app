@@ -49,10 +49,8 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
 
     const updateWidth = () => {
       if (containerRef.current) {
-        // Try multiple methods to get width
         const rect = containerRef.current.getBoundingClientRect();
         const width = rect.width || containerRef.current.clientWidth || containerRef.current.offsetWidth;
-        console.log('Measuring width:', { rectWidth: rect.width, clientWidth: containerRef.current.clientWidth, offsetWidth: containerRef.current.offsetWidth });
         if (width > 0) {
           setContainerWidth(width);
         }
@@ -92,16 +90,13 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
       return;
     }
 
-    console.log('Loading thumbnail for:', imagePath);
     setLoadingPaths(prev => new Set(prev).add(imagePath));
 
     try {
       const url = await onLoadThumbnail(imagePath);
-      console.log('Thumbnail loaded:', imagePath, 'URL length:', url?.length || 0);
       setThumbnailUrls(prev => new Map(prev).set(imagePath, url));
     } catch (error) {
       console.error(`Failed to load thumbnail for ${imagePath}:`, error);
-      // Mark as error by setting empty string
       setThumbnailUrls(prev => new Map(prev).set(imagePath, ''));
     } finally {
       setLoadingPaths(prev => {
@@ -118,6 +113,28 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
     return images[index] || null;
   }, [images, columnCount]);
 
+  // Queue for images needing thumbnail load
+  const pendingLoadsRef = useRef<Set<string>>(new Set());
+  const [loadTrigger, setLoadTrigger] = useState(0);
+
+  // Manual double-click detection (native double-click breaks due to re-render on click)
+  const lastClickRef = useRef<{ id: number; time: number } | null>(null);
+  const DOUBLE_CLICK_THRESHOLD = 300; // ms
+
+  // Process pending thumbnail loads
+  useEffect(() => {
+    if (pendingLoadsRef.current.size === 0) return;
+
+    const toLoad = Array.from(pendingLoadsRef.current);
+    pendingLoadsRef.current.clear();
+
+    toLoad.forEach(imagePath => {
+      if (!thumbnailUrls.has(imagePath) && !loadingPaths.has(imagePath)) {
+        loadThumbnail(imagePath);
+      }
+    });
+  }, [loadTrigger, thumbnailUrls, loadingPaths, loadThumbnail]);
+
   // Cell renderer for react-window
   const Cell = useMemo(() => {
     return ({ columnIndex, rowIndex, style }: GridChildComponentProps) => {
@@ -131,9 +148,11 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
       const thumbnailUrl = thumbnailUrls.get(image.path);
       const isLoading = loadingPaths.has(image.path);
 
-      // Load thumbnail if not yet loaded
-      if (!thumbnailUrl && !isLoading && image.path) {
-        loadThumbnail(image.path);
+      // Queue thumbnail loading (processed via effect after render)
+      if (!thumbnailUrl && !isLoading && image.path && !pendingLoadsRef.current.has(image.path)) {
+        pendingLoadsRef.current.add(image.path);
+        // Trigger load processing after render completes
+        requestAnimationFrame(() => setLoadTrigger(t => t + 1));
       }
 
       return (
@@ -151,8 +170,21 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
               thumbnail-item h-full w-full bg-gray-100
               ${isSelected ? 'selected ring-blue-500' : ''}
             `}
-            onClick={(e) => onSelectImage(image.id, e.ctrlKey || e.metaKey)}
-            onDoubleClick={() => onDoubleClickImage(image.id)}
+            onClick={(e) => {
+              const now = Date.now();
+              const lastClick = lastClickRef.current;
+
+              // Check for double-click
+              if (lastClick && lastClick.id === image.id && (now - lastClick.time) < DOUBLE_CLICK_THRESHOLD) {
+                lastClickRef.current = null;
+                onDoubleClickImage(image.id);
+                return;
+              }
+
+              // Single click
+              lastClickRef.current = { id: image.id, time: now };
+              onSelectImage(image.id, e.ctrlKey || e.metaKey);
+            }}
             role="option"
             aria-selected={isSelected}
             tabIndex={0}
@@ -191,7 +223,6 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
     selectedIds,
     thumbnailUrls,
     loadingPaths,
-    loadThumbnail,
     onSelectImage,
     onDoubleClickImage,
     gap
@@ -201,21 +232,11 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
   useEffect(() => {
     if (containerRef.current && images.length > 0 && containerWidth === 0) {
       const rect = containerRef.current.getBoundingClientRect();
-      console.log('Re-measuring on images change:', rect);
       if (rect.width > 0) {
         setContainerWidth(rect.width);
       }
     }
   }, [images.length, containerWidth]);
-
-  // Debug logging
-  console.log('ThumbnailGrid render:', {
-    imageCount: images.length,
-    containerWidth,
-    columnCount,
-    rowCount,
-    firstImage: images[0]
-  });
 
   if (images.length === 0) {
     return (

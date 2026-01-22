@@ -3,30 +3,43 @@ import { DirectorySelector } from './components/DirectorySelector';
 import { SplitPane } from './components/SplitPane';
 import { FolderTree, FolderNode } from './components/FolderTree';
 import { ThumbnailGrid, ImageItem } from './components/ThumbnailGrid';
+import { PhotoDetail } from './components/PhotoDetail';
 
 // Define the electronAPI interface for TypeScript
+interface IpcResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
 interface ElectronAPI {
-  openDirectory: () => Promise<{ success: boolean; data?: string; error?: string }>;
+  openDirectory: () => Promise<IpcResponse<string>>;
   directory: {
-    setRoot: (dirPath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
-    getRoot: () => Promise<{ success: boolean; data?: any; error?: string }>;
-    clearRoot: () => Promise<{ success: boolean; data?: boolean; error?: string }>;
-    scan: (dirPath?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
-    getContents: (dirPath: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
-    getSubdirectories: (dirPath: string) => Promise<{ success: boolean; data?: string[]; error?: string }>;
-    isValid: (dirPath: string) => Promise<{ success: boolean; data?: boolean; error?: string }>;
+    setRoot: (dirPath: string) => Promise<IpcResponse<any>>;
+    getRoot: () => Promise<IpcResponse<any>>;
+    clearRoot: () => Promise<IpcResponse<boolean>>;
+    scan: (dirPath?: string) => Promise<IpcResponse<any>>;
+    getContents: (dirPath: string) => Promise<IpcResponse<any[]>>;
+    getSubdirectories: (dirPath: string) => Promise<IpcResponse<string[]>>;
+    isValid: (dirPath: string) => Promise<IpcResponse<boolean>>;
     onFileAdded: (callback: (filePath: string) => void) => void;
     onFileRemoved: (callback: (filePath: string) => void) => void;
     onFileChanged: (callback: (filePath: string) => void) => void;
     onWatcherError: (callback: (error: string) => void) => void;
   };
   database: {
-    getImageCount: () => Promise<{ success: boolean; data?: number; error?: string }>;
-    getDuplicateCount: () => Promise<{ success: boolean; data?: number; error?: string }>;
-    getImagesByDirectory: (directory: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+    getImageCount: () => Promise<IpcResponse<number>>;
+    getDuplicateCount: () => Promise<IpcResponse<number>>;
+    getImagesByDirectory: (directory: string) => Promise<IpcResponse<any[]>>;
   };
   thumbnail: {
-    getAsDataUrl: (imagePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+    getAsDataUrl: (imagePath: string) => Promise<IpcResponse<string>>;
+  };
+  exif: {
+    extract: (filepath: string) => Promise<IpcResponse<any>>;
+  };
+  trash: {
+    getFileInfo: (filepath: string) => Promise<IpcResponse<{ size: number; modified: number }>>;
   };
 }
 
@@ -62,6 +75,7 @@ export const App: React.FC = () => {
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [images, setImages] = useState<ImageItem[]>([]);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
+  const [detailImagePath, setDetailImagePath] = useState<string | null>(null);
 
   // Load initial directory and stats on component mount
   useEffect(() => {
@@ -295,8 +309,18 @@ export const App: React.FC = () => {
   }, []);
 
   const handleDoubleClickImage = useCallback((id: number) => {
-    // TODO: Open image detail view
-    console.log('Open image:', id);
+    const image = images.find(img => img.id === id);
+    if (image) {
+      setDetailImagePath(image.path);
+    }
+  }, [images]);
+
+  const handleCloseDetail = useCallback(() => {
+    setDetailImagePath(null);
+  }, []);
+
+  const handleNavigateDetail = useCallback((imagePath: string) => {
+    setDetailImagePath(imagePath);
   }, []);
 
   const handleLoadThumbnail = useCallback(async (imagePath: string): Promise<string> => {
@@ -453,6 +477,16 @@ export const App: React.FC = () => {
           <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
           <p>Processing...</p>
         </div>
+      )}
+
+      {/* Photo Detail View */}
+      {detailImagePath && (
+        <PhotoDetail
+          imagePath={detailImagePath}
+          allImages={images}
+          onClose={handleCloseDetail}
+          onNavigate={handleNavigateDetail}
+        />
       )}
     </div>
   );

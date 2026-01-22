@@ -85,6 +85,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDuplicateCount: () => ipcRenderer.invoke('database:getDuplicateCount')
   },
 
+  // Tag methods
+  tags: {
+    create: (name: string, color?: string) => ipcRenderer.invoke('tags:create', name, color),
+    get: (id: number) => ipcRenderer.invoke('tags:get', id),
+    getByName: (name: string) => ipcRenderer.invoke('tags:getByName', name),
+    getAll: () => ipcRenderer.invoke('tags:getAll'),
+    update: (id: number, updates: { name?: string; color?: string }) => ipcRenderer.invoke('tags:update', id, updates),
+    delete: (id: number) => ipcRenderer.invoke('tags:delete', id),
+    addToImage: (imageId: number, tagId: number) => ipcRenderer.invoke('tags:addToImage', imageId, tagId),
+    removeFromImage: (imageId: number, tagId: number) => ipcRenderer.invoke('tags:removeFromImage', imageId, tagId),
+    getForImage: (imageId: number) => ipcRenderer.invoke('tags:getForImage', imageId),
+    getImages: (tagId: number) => ipcRenderer.invoke('tags:getImages', tagId)
+  },
+
+  // Album methods
+  albums: {
+    create: (name: string, description?: string) => ipcRenderer.invoke('albums:create', name, description),
+    get: (id: number) => ipcRenderer.invoke('albums:get', id),
+    getAll: () => ipcRenderer.invoke('albums:getAll'),
+    update: (id: number, updates: { name?: string; description?: string; coverImageId?: number }) => ipcRenderer.invoke('albums:update', id, updates),
+    delete: (id: number) => ipcRenderer.invoke('albums:delete', id),
+    addImage: (albumId: number, imageId: number, position?: number) => ipcRenderer.invoke('albums:addImage', albumId, imageId, position),
+    removeImage: (albumId: number, imageId: number) => ipcRenderer.invoke('albums:removeImage', albumId, imageId),
+    getImages: (albumId: number) => ipcRenderer.invoke('albums:getImages', albumId),
+    getForImage: (imageId: number) => ipcRenderer.invoke('albums:getForImage', imageId),
+    reorderImages: (albumId: number, imageIds: number[]) => ipcRenderer.invoke('albums:reorderImages', albumId, imageIds)
+  },
+
   // Thumbnail service methods
   thumbnail: {
     get: (imagePath: string) => ipcRenderer.invoke('thumbnail:get', imagePath),

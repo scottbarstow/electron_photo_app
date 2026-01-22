@@ -42,6 +42,7 @@ exports.closeDatabase = closeDatabase;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const path = __importStar(require("path"));
 const electron_1 = require("electron");
+const migrationTagsAlbums = __importStar(require("./migrations/002-tags-albums"));
 class PhotoDatabase {
     constructor(dbPath) {
         const defaultPath = path.join(electron_1.app.getPath('userData'), 'photos.db');
@@ -115,6 +116,17 @@ class PhotoDatabase {
             }
             catch (error) {
                 console.error('Migration v1_exif_folders failed:', error);
+            }
+        }
+        // Migration 2: Add tags and albums tables
+        if (!this.isMigrationApplied(migrationTagsAlbums.version)) {
+            try {
+                migrationTagsAlbums.up(this.db);
+                this.applyMigration(migrationTagsAlbums.version);
+                console.log('Applied migration:', migrationTagsAlbums.version);
+            }
+            catch (error) {
+                console.error('Migration', migrationTagsAlbums.version, 'failed:', error);
             }
         }
     }
@@ -404,6 +416,203 @@ class PhotoDatabase {
     }
     clearFolders() {
         this.db.exec('DELETE FROM folders');
+    }
+    // Tag operations
+    createTag(name, color = '#6b7280') {
+        const stmt = this.db.prepare(`
+      INSERT INTO tags (name, color) VALUES (?, ?)
+    `);
+        const result = stmt.run(name, color);
+        return result.lastInsertRowid;
+    }
+    getTag(id) {
+        const stmt = this.db.prepare('SELECT * FROM tags WHERE id = ?');
+        const row = stmt.get(id);
+        if (!row)
+            return undefined;
+        return { id: row.id, name: row.name, color: row.color, created: row.created };
+    }
+    getTagByName(name) {
+        const stmt = this.db.prepare('SELECT * FROM tags WHERE name = ?');
+        const row = stmt.get(name);
+        if (!row)
+            return undefined;
+        return { id: row.id, name: row.name, color: row.color, created: row.created };
+    }
+    getAllTags() {
+        const stmt = this.db.prepare('SELECT * FROM tags ORDER BY name');
+        const rows = stmt.all();
+        return rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            color: row.color,
+            created: row.created
+        }));
+    }
+    updateTag(id, updates) {
+        const fields = [];
+        const values = [];
+        if (updates.name !== undefined) {
+            fields.push('name = ?');
+            values.push(updates.name);
+        }
+        if (updates.color !== undefined) {
+            fields.push('color = ?');
+            values.push(updates.color);
+        }
+        if (fields.length === 0)
+            return;
+        values.push(id);
+        const stmt = this.db.prepare(`UPDATE tags SET ${fields.join(', ')} WHERE id = ?`);
+        stmt.run(...values);
+    }
+    deleteTag(id) {
+        const stmt = this.db.prepare('DELETE FROM tags WHERE id = ?');
+        stmt.run(id);
+    }
+    // Image-Tag operations
+    addTagToImage(imageId, tagId) {
+        const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)
+    `);
+        stmt.run(imageId, tagId);
+    }
+    removeTagFromImage(imageId, tagId) {
+        const stmt = this.db.prepare('DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?');
+        stmt.run(imageId, tagId);
+    }
+    getTagsForImage(imageId) {
+        const stmt = this.db.prepare(`
+      SELECT t.* FROM tags t
+      JOIN image_tags it ON t.id = it.tag_id
+      WHERE it.image_id = ?
+      ORDER BY t.name
+    `);
+        const rows = stmt.all(imageId);
+        return rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            color: row.color,
+            created: row.created
+        }));
+    }
+    getImagesByTag(tagId) {
+        const stmt = this.db.prepare(`
+      SELECT i.* FROM images i
+      JOIN image_tags it ON i.id = it.image_id
+      WHERE it.tag_id = ?
+      ORDER BY i.path
+    `);
+        return this.mapImageRecords(stmt.all(tagId));
+    }
+    // Album operations
+    createAlbum(name, description) {
+        const stmt = this.db.prepare(`
+      INSERT INTO albums (name, description) VALUES (?, ?)
+    `);
+        const result = stmt.run(name, description || null);
+        return result.lastInsertRowid;
+    }
+    getAlbum(id) {
+        const stmt = this.db.prepare('SELECT * FROM albums WHERE id = ?');
+        const row = stmt.get(id);
+        if (!row)
+            return undefined;
+        return {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            coverImageId: row.cover_image_id,
+            created: row.created,
+            updated: row.updated
+        };
+    }
+    getAllAlbums() {
+        const stmt = this.db.prepare('SELECT * FROM albums ORDER BY name');
+        const rows = stmt.all();
+        return rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            coverImageId: row.cover_image_id,
+            created: row.created,
+            updated: row.updated
+        }));
+    }
+    updateAlbum(id, updates) {
+        const fields = ['updated = strftime(\'%s\', \'now\')'];
+        const values = [];
+        if (updates.name !== undefined) {
+            fields.push('name = ?');
+            values.push(updates.name);
+        }
+        if (updates.description !== undefined) {
+            fields.push('description = ?');
+            values.push(updates.description);
+        }
+        if (updates.coverImageId !== undefined) {
+            fields.push('cover_image_id = ?');
+            values.push(updates.coverImageId);
+        }
+        values.push(id);
+        const stmt = this.db.prepare(`UPDATE albums SET ${fields.join(', ')} WHERE id = ?`);
+        stmt.run(...values);
+    }
+    deleteAlbum(id) {
+        const stmt = this.db.prepare('DELETE FROM albums WHERE id = ?');
+        stmt.run(id);
+    }
+    // Album-Image operations
+    addImageToAlbum(albumId, imageId, position) {
+        const pos = position ?? this.getAlbumImageCount(albumId);
+        const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO album_images (album_id, image_id, position) VALUES (?, ?, ?)
+    `);
+        stmt.run(albumId, imageId, pos);
+    }
+    removeImageFromAlbum(albumId, imageId) {
+        const stmt = this.db.prepare('DELETE FROM album_images WHERE album_id = ? AND image_id = ?');
+        stmt.run(albumId, imageId);
+    }
+    getImagesInAlbum(albumId) {
+        const stmt = this.db.prepare(`
+      SELECT i.* FROM images i
+      JOIN album_images ai ON i.id = ai.image_id
+      WHERE ai.album_id = ?
+      ORDER BY ai.position
+    `);
+        return this.mapImageRecords(stmt.all(albumId));
+    }
+    getAlbumsForImage(imageId) {
+        const stmt = this.db.prepare(`
+      SELECT a.* FROM albums a
+      JOIN album_images ai ON a.id = ai.album_id
+      WHERE ai.image_id = ?
+      ORDER BY a.name
+    `);
+        const rows = stmt.all(imageId);
+        return rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            coverImageId: row.cover_image_id,
+            created: row.created,
+            updated: row.updated
+        }));
+    }
+    getAlbumImageCount(albumId) {
+        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM album_images WHERE album_id = ?');
+        const result = stmt.get(albumId);
+        return result.count;
+    }
+    reorderAlbumImages(albumId, imageIds) {
+        const stmt = this.db.prepare('UPDATE album_images SET position = ? WHERE album_id = ? AND image_id = ?');
+        const transaction = this.db.transaction(() => {
+            imageIds.forEach((imageId, index) => {
+                stmt.run(index, albumId, imageId);
+            });
+        });
+        transaction();
     }
     // User preferences operations
     setPreference(key, value) {

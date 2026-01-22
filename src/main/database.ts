@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import { app } from 'electron';
+import * as migrationTagsAlbums from './migrations/002-tags-albums';
 
 export interface ImageRecord {
   id?: number;
@@ -43,6 +44,22 @@ export interface DuplicateGroup {
 export interface UserPreference {
   key: string;
   value: string;
+}
+
+export interface Tag {
+  id?: number;
+  name: string;
+  color: string;
+  created?: number;
+}
+
+export interface Album {
+  id?: number;
+  name: string;
+  description?: string;
+  coverImageId?: number;
+  created?: number;
+  updated?: number;
 }
 
 export class PhotoDatabase {
@@ -129,6 +146,17 @@ export class PhotoDatabase {
         console.log('Applied migration: v1_exif_folders');
       } catch (error) {
         console.error('Migration v1_exif_folders failed:', error);
+      }
+    }
+
+    // Migration 2: Add tags and albums tables
+    if (!this.isMigrationApplied(migrationTagsAlbums.version)) {
+      try {
+        migrationTagsAlbums.up(this.db);
+        this.applyMigration(migrationTagsAlbums.version);
+        console.log('Applied migration:', migrationTagsAlbums.version);
+      } catch (error) {
+        console.error('Migration', migrationTagsAlbums.version, 'failed:', error);
       }
     }
   }
@@ -478,6 +506,226 @@ export class PhotoDatabase {
 
   clearFolders(): void {
     this.db.exec('DELETE FROM folders');
+  }
+
+  // Tag operations
+  createTag(name: string, color: string = '#6b7280'): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO tags (name, color) VALUES (?, ?)
+    `);
+    const result = stmt.run(name, color);
+    return result.lastInsertRowid as number;
+  }
+
+  getTag(id: number): Tag | undefined {
+    const stmt = this.db.prepare('SELECT * FROM tags WHERE id = ?');
+    const row = stmt.get(id) as any;
+    if (!row) return undefined;
+    return { id: row.id, name: row.name, color: row.color, created: row.created };
+  }
+
+  getTagByName(name: string): Tag | undefined {
+    const stmt = this.db.prepare('SELECT * FROM tags WHERE name = ?');
+    const row = stmt.get(name) as any;
+    if (!row) return undefined;
+    return { id: row.id, name: row.name, color: row.color, created: row.created };
+  }
+
+  getAllTags(): Tag[] {
+    const stmt = this.db.prepare('SELECT * FROM tags ORDER BY name');
+    const rows = stmt.all() as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      color: row.color,
+      created: row.created
+    }));
+  }
+
+  updateTag(id: number, updates: Partial<Tag>): void {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.color !== undefined) {
+      fields.push('color = ?');
+      values.push(updates.color);
+    }
+
+    if (fields.length === 0) return;
+    values.push(id);
+
+    const stmt = this.db.prepare(`UPDATE tags SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...values);
+  }
+
+  deleteTag(id: number): void {
+    const stmt = this.db.prepare('DELETE FROM tags WHERE id = ?');
+    stmt.run(id);
+  }
+
+  // Image-Tag operations
+  addTagToImage(imageId: number, tagId: number): void {
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO image_tags (image_id, tag_id) VALUES (?, ?)
+    `);
+    stmt.run(imageId, tagId);
+  }
+
+  removeTagFromImage(imageId: number, tagId: number): void {
+    const stmt = this.db.prepare('DELETE FROM image_tags WHERE image_id = ? AND tag_id = ?');
+    stmt.run(imageId, tagId);
+  }
+
+  getTagsForImage(imageId: number): Tag[] {
+    const stmt = this.db.prepare(`
+      SELECT t.* FROM tags t
+      JOIN image_tags it ON t.id = it.tag_id
+      WHERE it.image_id = ?
+      ORDER BY t.name
+    `);
+    const rows = stmt.all(imageId) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      color: row.color,
+      created: row.created
+    }));
+  }
+
+  getImagesByTag(tagId: number): ImageRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT i.* FROM images i
+      JOIN image_tags it ON i.id = it.image_id
+      WHERE it.tag_id = ?
+      ORDER BY i.path
+    `);
+    return this.mapImageRecords(stmt.all(tagId));
+  }
+
+  // Album operations
+  createAlbum(name: string, description?: string): number {
+    const stmt = this.db.prepare(`
+      INSERT INTO albums (name, description) VALUES (?, ?)
+    `);
+    const result = stmt.run(name, description || null);
+    return result.lastInsertRowid as number;
+  }
+
+  getAlbum(id: number): Album | undefined {
+    const stmt = this.db.prepare('SELECT * FROM albums WHERE id = ?');
+    const row = stmt.get(id) as any;
+    if (!row) return undefined;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      coverImageId: row.cover_image_id,
+      created: row.created,
+      updated: row.updated
+    };
+  }
+
+  getAllAlbums(): Album[] {
+    const stmt = this.db.prepare('SELECT * FROM albums ORDER BY name');
+    const rows = stmt.all() as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      coverImageId: row.cover_image_id,
+      created: row.created,
+      updated: row.updated
+    }));
+  }
+
+  updateAlbum(id: number, updates: Partial<Album>): void {
+    const fields: string[] = ['updated = strftime(\'%s\', \'now\')'];
+    const values: any[] = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.coverImageId !== undefined) {
+      fields.push('cover_image_id = ?');
+      values.push(updates.coverImageId);
+    }
+
+    values.push(id);
+
+    const stmt = this.db.prepare(`UPDATE albums SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...values);
+  }
+
+  deleteAlbum(id: number): void {
+    const stmt = this.db.prepare('DELETE FROM albums WHERE id = ?');
+    stmt.run(id);
+  }
+
+  // Album-Image operations
+  addImageToAlbum(albumId: number, imageId: number, position?: number): void {
+    const pos = position ?? this.getAlbumImageCount(albumId);
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO album_images (album_id, image_id, position) VALUES (?, ?, ?)
+    `);
+    stmt.run(albumId, imageId, pos);
+  }
+
+  removeImageFromAlbum(albumId: number, imageId: number): void {
+    const stmt = this.db.prepare('DELETE FROM album_images WHERE album_id = ? AND image_id = ?');
+    stmt.run(albumId, imageId);
+  }
+
+  getImagesInAlbum(albumId: number): ImageRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT i.* FROM images i
+      JOIN album_images ai ON i.id = ai.image_id
+      WHERE ai.album_id = ?
+      ORDER BY ai.position
+    `);
+    return this.mapImageRecords(stmt.all(albumId));
+  }
+
+  getAlbumsForImage(imageId: number): Album[] {
+    const stmt = this.db.prepare(`
+      SELECT a.* FROM albums a
+      JOIN album_images ai ON a.id = ai.album_id
+      WHERE ai.image_id = ?
+      ORDER BY a.name
+    `);
+    const rows = stmt.all(imageId) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      coverImageId: row.cover_image_id,
+      created: row.created,
+      updated: row.updated
+    }));
+  }
+
+  getAlbumImageCount(albumId: number): number {
+    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM album_images WHERE album_id = ?');
+    const result = stmt.get(albumId) as { count: number };
+    return result.count;
+  }
+
+  reorderAlbumImages(albumId: number, imageIds: number[]): void {
+    const stmt = this.db.prepare('UPDATE album_images SET position = ? WHERE album_id = ? AND image_id = ?');
+    const transaction = this.db.transaction(() => {
+      imageIds.forEach((imageId, index) => {
+        stmt.run(index, albumId, imageId);
+      });
+    });
+    transaction();
   }
 
   // User preferences operations

@@ -20,10 +20,8 @@ const ThumbnailGrid = ({ images, selectedIds, onSelectImage, onDoubleClickImage,
             return;
         const updateWidth = () => {
             if (containerRef.current) {
-                // Try multiple methods to get width
                 const rect = containerRef.current.getBoundingClientRect();
                 const width = rect.width || containerRef.current.clientWidth || containerRef.current.offsetWidth;
-                console.log('Measuring width:', { rectWidth: rect.width, clientWidth: containerRef.current.clientWidth, offsetWidth: containerRef.current.offsetWidth });
                 if (width > 0) {
                     setContainerWidth(width);
                 }
@@ -57,16 +55,13 @@ const ThumbnailGrid = ({ images, selectedIds, onSelectImage, onDoubleClickImage,
         if (thumbnailUrls.has(imagePath) || loadingPaths.has(imagePath)) {
             return;
         }
-        console.log('Loading thumbnail for:', imagePath);
         setLoadingPaths(prev => new Set(prev).add(imagePath));
         try {
             const url = await onLoadThumbnail(imagePath);
-            console.log('Thumbnail loaded:', imagePath, 'URL length:', url?.length || 0);
             setThumbnailUrls(prev => new Map(prev).set(imagePath, url));
         }
         catch (error) {
             console.error(`Failed to load thumbnail for ${imagePath}:`, error);
-            // Mark as error by setting empty string
             setThumbnailUrls(prev => new Map(prev).set(imagePath, ''));
         }
         finally {
@@ -82,6 +77,24 @@ const ThumbnailGrid = ({ images, selectedIds, onSelectImage, onDoubleClickImage,
         const index = rowIndex * columnCount + columnIndex;
         return images[index] || null;
     }, [images, columnCount]);
+    // Queue for images needing thumbnail load
+    const pendingLoadsRef = (0, react_1.useRef)(new Set());
+    const [loadTrigger, setLoadTrigger] = (0, react_1.useState)(0);
+    // Manual double-click detection (native double-click breaks due to re-render on click)
+    const lastClickRef = (0, react_1.useRef)(null);
+    const DOUBLE_CLICK_THRESHOLD = 300; // ms
+    // Process pending thumbnail loads
+    (0, react_1.useEffect)(() => {
+        if (pendingLoadsRef.current.size === 0)
+            return;
+        const toLoad = Array.from(pendingLoadsRef.current);
+        pendingLoadsRef.current.clear();
+        toLoad.forEach(imagePath => {
+            if (!thumbnailUrls.has(imagePath) && !loadingPaths.has(imagePath)) {
+                loadThumbnail(imagePath);
+            }
+        });
+    }, [loadTrigger, thumbnailUrls, loadingPaths, loadThumbnail]);
     // Cell renderer for react-window
     const Cell = (0, react_1.useMemo)(() => {
         return ({ columnIndex, rowIndex, style }) => {
@@ -92,9 +105,11 @@ const ThumbnailGrid = ({ images, selectedIds, onSelectImage, onDoubleClickImage,
             const isSelected = selectedIds.has(image.id);
             const thumbnailUrl = thumbnailUrls.get(image.path);
             const isLoading = loadingPaths.has(image.path);
-            // Load thumbnail if not yet loaded
-            if (!thumbnailUrl && !isLoading && image.path) {
-                loadThumbnail(image.path);
+            // Queue thumbnail loading (processed via effect after render)
+            if (!thumbnailUrl && !isLoading && image.path && !pendingLoadsRef.current.has(image.path)) {
+                pendingLoadsRef.current.add(image.path);
+                // Trigger load processing after render completes
+                requestAnimationFrame(() => setLoadTrigger(t => t + 1));
             }
             return ((0, jsx_runtime_1.jsx)("div", { style: {
                     ...style,
@@ -105,14 +120,25 @@ const ThumbnailGrid = ({ images, selectedIds, onSelectImage, onDoubleClickImage,
                 }, children: (0, jsx_runtime_1.jsxs)("div", { className: `
               thumbnail-item h-full w-full bg-gray-100
               ${isSelected ? 'selected ring-blue-500' : ''}
-            `, onClick: (e) => onSelectImage(image.id, e.ctrlKey || e.metaKey), onDoubleClick: () => onDoubleClickImage(image.id), role: "option", "aria-selected": isSelected, tabIndex: 0, children: [isLoading ? ((0, jsx_runtime_1.jsx)("div", { className: "w-full h-full flex items-center justify-center", children: (0, jsx_runtime_1.jsx)("div", { className: "w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" }) })) : thumbnailUrl ? ((0, jsx_runtime_1.jsx)("img", { src: thumbnailUrl, alt: image.filename, className: "w-full h-full object-cover", loading: "lazy" })) : ((0, jsx_runtime_1.jsx)("div", { className: "w-full h-full flex items-center justify-center text-gray-400", children: (0, jsx_runtime_1.jsx)("svg", { className: "w-8 h-8", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" }) }) })), (0, jsx_runtime_1.jsx)("div", { className: "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2", children: (0, jsx_runtime_1.jsx)("p", { className: "text-white text-xs truncate", children: image.filename }) })] }) }));
+            `, onClick: (e) => {
+                        const now = Date.now();
+                        const lastClick = lastClickRef.current;
+                        // Check for double-click
+                        if (lastClick && lastClick.id === image.id && (now - lastClick.time) < DOUBLE_CLICK_THRESHOLD) {
+                            lastClickRef.current = null;
+                            onDoubleClickImage(image.id);
+                            return;
+                        }
+                        // Single click
+                        lastClickRef.current = { id: image.id, time: now };
+                        onSelectImage(image.id, e.ctrlKey || e.metaKey);
+                    }, role: "option", "aria-selected": isSelected, tabIndex: 0, children: [isLoading ? ((0, jsx_runtime_1.jsx)("div", { className: "w-full h-full flex items-center justify-center", children: (0, jsx_runtime_1.jsx)("div", { className: "w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" }) })) : thumbnailUrl ? ((0, jsx_runtime_1.jsx)("img", { src: thumbnailUrl, alt: image.filename, className: "w-full h-full object-cover", loading: "lazy" })) : ((0, jsx_runtime_1.jsx)("div", { className: "w-full h-full flex items-center justify-center text-gray-400", children: (0, jsx_runtime_1.jsx)("svg", { className: "w-8 h-8", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" }) }) })), (0, jsx_runtime_1.jsx)("div", { className: "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2", children: (0, jsx_runtime_1.jsx)("p", { className: "text-white text-xs truncate", children: image.filename }) })] }) }));
         };
     }, [
         getImageAtPosition,
         selectedIds,
         thumbnailUrls,
         loadingPaths,
-        loadThumbnail,
         onSelectImage,
         onDoubleClickImage,
         gap
@@ -121,20 +147,11 @@ const ThumbnailGrid = ({ images, selectedIds, onSelectImage, onDoubleClickImage,
     (0, react_1.useEffect)(() => {
         if (containerRef.current && images.length > 0 && containerWidth === 0) {
             const rect = containerRef.current.getBoundingClientRect();
-            console.log('Re-measuring on images change:', rect);
             if (rect.width > 0) {
                 setContainerWidth(rect.width);
             }
         }
     }, [images.length, containerWidth]);
-    // Debug logging
-    console.log('ThumbnailGrid render:', {
-        imageCount: images.length,
-        containerWidth,
-        columnCount,
-        rowCount,
-        firstImage: images[0]
-    });
     if (images.length === 0) {
         return ((0, jsx_runtime_1.jsx)("div", { className: `flex items-center justify-center h-full ${className}`, children: (0, jsx_runtime_1.jsxs)("div", { className: "text-center text-gray-500", children: [(0, jsx_runtime_1.jsx)("svg", { className: "w-16 h-16 mx-auto mb-4 text-gray-300", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24", children: (0, jsx_runtime_1.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 1.5, d: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" }) }), (0, jsx_runtime_1.jsx)("p", { className: "text-lg font-medium", children: "No images" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm", children: "Select a folder to view images" })] }) }));
     }

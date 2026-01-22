@@ -547,6 +547,157 @@ export function setupIpcHandlers(): void {
     });
   });
 
+  // Tag handlers
+  ipcMain.handle('tags:create', async (event, name: string, color?: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.createTag(name, color);
+    });
+  });
+
+  ipcMain.handle('tags:get', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getTag(id);
+    });
+  });
+
+  ipcMain.handle('tags:getByName', async (event, name: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getTagByName(name);
+    });
+  });
+
+  ipcMain.handle('tags:getAll', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAllTags();
+    });
+  });
+
+  ipcMain.handle('tags:update', async (event, id: number, updates: { name?: string; color?: string }) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.updateTag(id, updates);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:delete', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.deleteTag(id);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:addToImage', async (event, imageId: number, tagId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.addTagToImage(imageId, tagId);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:removeFromImage', async (event, imageId: number, tagId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.removeTagFromImage(imageId, tagId);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:getForImage', async (event, imageId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getTagsForImage(imageId);
+    });
+  });
+
+  ipcMain.handle('tags:getImages', async (event, tagId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getImagesByTag(tagId);
+    });
+  });
+
+  // Album handlers
+  ipcMain.handle('albums:create', async (event, name: string, description?: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.createAlbum(name, description);
+    });
+  });
+
+  ipcMain.handle('albums:get', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAlbum(id);
+    });
+  });
+
+  ipcMain.handle('albums:getAll', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAllAlbums();
+    });
+  });
+
+  ipcMain.handle('albums:update', async (event, id: number, updates: { name?: string; description?: string; coverImageId?: number }) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.updateAlbum(id, updates);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:delete', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.deleteAlbum(id);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:addImage', async (event, albumId: number, imageId: number, position?: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.addImageToAlbum(albumId, imageId, position);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:removeImage', async (event, albumId: number, imageId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.removeImageFromAlbum(albumId, imageId);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:getImages', async (event, albumId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getImagesInAlbum(albumId);
+    });
+  });
+
+  ipcMain.handle('albums:getForImage', async (event, imageId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAlbumsForImage(imageId);
+    });
+  });
+
+  ipcMain.handle('albums:reorderImages', async (event, albumId: number, imageIds: number[]) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.reorderAlbumImages(albumId, imageIds);
+      return true;
+    });
+  });
+
   // Utility handlers
   ipcMain.handle('path:join', async (event, ...paths: string[]) => {
     return handleAsyncIpc(async () => {
