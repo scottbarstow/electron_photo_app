@@ -19,6 +19,13 @@ interface FolderTreeProps {
   className?: string;
 }
 
+// Context menu state
+interface ContextMenuState {
+  x: number;
+  y: number;
+  path: string;
+}
+
 export const FolderTree: React.FC<FolderTreeProps> = ({
   rootPath,
   selectedPath,
@@ -28,6 +35,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
 }) => {
   const [tree, setTree] = useState<FolderNode | null>(null);
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   // Initialize tree when root path changes
   useEffect(() => {
@@ -116,11 +124,37 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
     if (newExpanded && !node.isLoaded) {
       await loadChildrenForPath(node.path, node);
     }
-  }, [loadingPaths]);
+  }, [loadChildrenForPath]);
 
   const handleSelectFolder = useCallback((node: FolderNode) => {
     onSelectFolder(node.path);
   }, [onSelectFolder]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, node: FolderNode) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, path: node.path });
+  }, []);
+
+  const handleOpenInFinder = useCallback(async () => {
+    if (contextMenu) {
+      try {
+        await window.electronAPI.shell.openInFinder(contextMenu.path);
+      } catch (err) {
+        console.error('Failed to open in Finder:', err);
+      }
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
 
   const renderNode = (node: FolderNode): React.ReactNode => {
     const isSelected = node.path === selectedPath;
@@ -138,6 +172,7 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           style={{ paddingLeft: `${node.depth * 16 + 8}px` }}
           onClick={() => handleSelectFolder(node)}
           onDoubleClick={() => handleToggleExpand(node)}
+          onContextMenu={(e) => handleContextMenu(e, node)}
           role="treeitem"
           aria-selected={isSelected}
           aria-expanded={node.isExpanded}
@@ -229,6 +264,22 @@ export const FolderTree: React.FC<FolderTreeProps> = ({
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[160px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            onClick={handleOpenInFinder}
+          >
+            <span>📂</span>
+            Open in Finder
+          </button>
+        </div>
+      )}
     </div>
   );
 };
