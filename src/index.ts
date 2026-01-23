@@ -1,11 +1,15 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, protocol, net } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { setupIpcHandlers, setupDirectoryEventForwarding } from './main/ipc-handlers';
+import { getDirectoryService } from './main/directory-service';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
 }
+
+const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
 const createWindow = (): void => {
   // Create the browser window.
@@ -19,20 +23,71 @@ const createWindow = (): void => {
     },
   });
 
-  // Load the app
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  // Load the app - use Vite dev server in development, built files in production
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+  }
 
-  // Open the DevTools automatically
+  // Open the DevTools (always open for debugging)
   mainWindow.webContents.openDevTools();
 };
+
+// Register custom protocol for serving local image files
+// This must be called before app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'photo', privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true } }
+]);
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.whenReady().then(() => {
+  // Register photo:// protocol handler to serve local files
+  protocol.handle('photo', (request) => {
+    // URL format: photo://localhost/path/to/file.jpg
+    const url = new URL(request.url);
+    // pathname includes the leading /, e.g., /Users/sbarstow/Pictures/file.jpg
+    const filePath = decodeURIComponent(url.pathname);
+
+    // Security check: validate path is within the configured root directory
+    try {
+      const directoryService = getDirectoryService();
+      const rootPath = directoryService.getRootDirectory();
+
+      if (!rootPath) {
+        return new Response('Access denied: no root directory configured', { status: 403 });
+      }
+
+      const resolvedPath = path.resolve(filePath);
+      const resolvedRoot = path.resolve(rootPath);
+
+      // Ensure the path is within the root directory (prevent path traversal)
+      if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path.sep)) {
+        return new Response('Access denied: path outside root directory', { status: 403 });
+      }
+
+      if (!fs.existsSync(filePath)) {
+        return new Response('File not found', { status: 404 });
+      }
+
+      const stat = fs.statSync(filePath);
+      if (!stat.isFile()) {
+        return new Response('Not a file', { status: 400 });
+      }
+
+      // Use net.fetch to serve the file
+      return net.fetch(`file://${filePath}`);
+    } catch (error) {
+      console.error('Protocol handler error:', error);
+      return new Response('Error loading file', { status: 500 });
+    }
+  });
+
   // Setup IPC handlers
   setupIpcHandlers();
   setupDirectoryEventForwarding();
-  
+
   // Create the main window
   createWindow();
 });

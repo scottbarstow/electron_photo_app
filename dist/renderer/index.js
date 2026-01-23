@@ -3,55 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const jsx_runtime_1 = require("react/jsx-runtime");
 const client_1 = require("react-dom/client");
 const App_1 = require("./App");
-// Add global styles including the spinner animation
-const globalStyles = `
-  * {
-    box-sizing: border-box;
-  }
-  
-  body {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f5f5f5;
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  button:hover:not(:disabled) {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-  
-  button:active:not(:disabled) {
-    transform: translateY(0);
-  }
-  
-  ::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: #a1a1a1;
-  }
-`;
-// Inject global styles
-const styleSheet = document.createElement('style');
-styleSheet.textContent = globalStyles;
-document.head.appendChild(styleSheet);
+require("./index.css");
 // Get the root element
 const rootElement = document.getElementById('root');
 if (!rootElement) {

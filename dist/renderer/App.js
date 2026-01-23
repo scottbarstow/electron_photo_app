@@ -4,17 +4,45 @@ exports.App = void 0;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const react_1 = require("react");
 const DirectorySelector_1 = require("./components/DirectorySelector");
+const SplitPane_1 = require("./components/SplitPane");
+const FolderTree_1 = require("./components/FolderTree");
+const ThumbnailGrid_1 = require("./components/ThumbnailGrid");
+const PhotoDetail_1 = require("./components/PhotoDetail");
 const App = () => {
     const [currentDirectory, setCurrentDirectory] = (0, react_1.useState)(null);
     const [stats, setStats] = (0, react_1.useState)({ imageCount: 0, duplicateCount: 0 });
     const [isLoading, setIsLoading] = (0, react_1.useState)(false);
     const [error, setError] = (0, react_1.useState)(null);
-    const [fileEvents, setFileEvents] = (0, react_1.useState)([]);
+    const [view, setView] = (0, react_1.useState)('setup');
+    // Browser state
+    const [selectedFolderPath, setSelectedFolderPath] = (0, react_1.useState)(null);
+    const [images, setImages] = (0, react_1.useState)([]);
+    const [selectedImageIds, setSelectedImageIds] = (0, react_1.useState)(new Set());
+    const [detailImagePath, setDetailImagePath] = (0, react_1.useState)(null);
     // Load initial directory and stats on component mount
     (0, react_1.useEffect)(() => {
         loadInitialData();
         setupFileEventListeners();
     }, []);
+    // Switch to browser view when directory is set
+    (0, react_1.useEffect)(() => {
+        if (currentDirectory && currentDirectory.isValid) {
+            setView('browser');
+            setSelectedFolderPath(currentDirectory.path);
+        }
+        else {
+            setView('setup');
+        }
+    }, [currentDirectory]);
+    // Load images when folder selection changes
+    (0, react_1.useEffect)(() => {
+        if (selectedFolderPath) {
+            loadImagesForFolder(selectedFolderPath);
+        }
+        else {
+            setImages([]);
+        }
+    }, [selectedFolderPath]);
     const loadInitialData = async () => {
         try {
             setIsLoading(true);
@@ -51,22 +79,61 @@ const App = () => {
         }
     };
     const setupFileEventListeners = () => {
-        // Listen for file changes
-        window.electronAPI.directory.onFileAdded((filePath) => {
-            setFileEvents(prev => [...prev.slice(-9), `Added: ${filePath}`]);
-            loadStats(); // Refresh stats when files change
-        });
-        window.electronAPI.directory.onFileRemoved((filePath) => {
-            setFileEvents(prev => [...prev.slice(-9), `Removed: ${filePath}`]);
+        window.electronAPI.directory.onFileAdded(() => {
             loadStats();
+            if (selectedFolderPath) {
+                loadImagesForFolder(selectedFolderPath);
+            }
         });
-        window.electronAPI.directory.onFileChanged((filePath) => {
-            setFileEvents(prev => [...prev.slice(-9), `Changed: ${filePath}`]);
+        window.electronAPI.directory.onFileRemoved(() => {
+            loadStats();
+            if (selectedFolderPath) {
+                loadImagesForFolder(selectedFolderPath);
+            }
         });
         window.electronAPI.directory.onWatcherError((error) => {
             console.error('Directory watcher error:', error);
             setError(`Directory watching error: ${error}`);
         });
+    };
+    const loadImagesForFolder = async (folderPath) => {
+        try {
+            console.log('Loading images for folder:', folderPath);
+            // First try to get from database
+            const dbResponse = await window.electronAPI.database.getImagesByDirectory(folderPath);
+            console.log('Database response:', dbResponse);
+            if (dbResponse.success && dbResponse.data && dbResponse.data.length > 0) {
+                console.log('Found', dbResponse.data.length, 'images in database');
+                setImages(dbResponse.data.map(img => ({
+                    id: img.id,
+                    path: img.path,
+                    filename: img.filename
+                })));
+            }
+            else {
+                // Fall back to directory contents
+                console.log('Falling back to directory contents');
+                const contentsResponse = await window.electronAPI.directory.getContents(folderPath);
+                console.log('Directory contents response:', contentsResponse);
+                if (contentsResponse.success && contentsResponse.data) {
+                    const imageFiles = contentsResponse.data.filter(file => file.isImage);
+                    console.log('Found', imageFiles.length, 'image files in directory');
+                    setImages(imageFiles.map((file, index) => ({
+                        id: index,
+                        path: file.path,
+                        filename: file.name
+                    })));
+                }
+                else {
+                    console.log('Failed to get directory contents:', contentsResponse.error);
+                    setImages([]);
+                }
+            }
+        }
+        catch (err) {
+            console.error('Failed to load images:', err);
+            setImages([]);
+        }
     };
     const handleDirectorySelected = async (dirPath) => {
         try {
@@ -107,7 +174,9 @@ const App = () => {
             if (response.success) {
                 setCurrentDirectory(null);
                 setStats({ imageCount: 0, duplicateCount: 0 });
-                setFileEvents([]);
+                setSelectedFolderPath(null);
+                setImages([]);
+                setSelectedImageIds(new Set());
             }
             else {
                 throw new Error(response.error || 'Failed to clear directory');
@@ -121,138 +190,82 @@ const App = () => {
             setIsLoading(false);
         }
     };
-    return ((0, jsx_runtime_1.jsxs)("div", { style: styles.container, children: [(0, jsx_runtime_1.jsxs)("header", { style: styles.header, children: [(0, jsx_runtime_1.jsx)("h1", { style: styles.title, children: "\uD83D\uDDC2\uFE0F Photo Management App" }), (0, jsx_runtime_1.jsx)("p", { style: styles.subtitle, children: "Clean Electron + React + TypeScript" })] }), error && ((0, jsx_runtime_1.jsxs)("div", { style: styles.errorBanner, children: [(0, jsx_runtime_1.jsxs)("span", { children: ["\u274C ", error] }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setError(null), style: styles.closeButton, children: "\u00D7" })] })), (0, jsx_runtime_1.jsxs)("main", { style: styles.main, children: [(0, jsx_runtime_1.jsx)(DirectorySelector_1.DirectorySelector, { currentDirectory: currentDirectory, onDirectorySelected: handleDirectorySelected, onClearDirectory: handleClearDirectory, isLoading: isLoading }), currentDirectory && ((0, jsx_runtime_1.jsxs)("div", { style: styles.statsSection, children: [(0, jsx_runtime_1.jsx)("h3", { style: styles.sectionTitle, children: "\uD83D\uDCCA Statistics" }), (0, jsx_runtime_1.jsxs)("div", { style: styles.statsGrid, children: [(0, jsx_runtime_1.jsxs)("div", { style: styles.statCard, children: [(0, jsx_runtime_1.jsx)("div", { style: styles.statNumber, children: stats.imageCount }), (0, jsx_runtime_1.jsx)("div", { style: styles.statLabel, children: "Images" })] }), (0, jsx_runtime_1.jsxs)("div", { style: styles.statCard, children: [(0, jsx_runtime_1.jsx)("div", { style: styles.statNumber, children: stats.duplicateCount }), (0, jsx_runtime_1.jsx)("div", { style: styles.statLabel, children: "Duplicate Groups" })] })] }), stats.lastScanTime && ((0, jsx_runtime_1.jsxs)("p", { style: styles.lastScan, children: ["Last updated: ", new Date(stats.lastScanTime).toLocaleTimeString()] }))] })), fileEvents.length > 0 && ((0, jsx_runtime_1.jsxs)("div", { style: styles.eventsSection, children: [(0, jsx_runtime_1.jsx)("h3", { style: styles.sectionTitle, children: "\uD83D\uDCDD Recent File Events" }), (0, jsx_runtime_1.jsx)("div", { style: styles.eventsList, children: fileEvents.map((event, index) => ((0, jsx_runtime_1.jsx)("div", { style: styles.eventItem, children: event }, index))) })] })), isLoading && ((0, jsx_runtime_1.jsxs)("div", { style: styles.loadingOverlay, children: [(0, jsx_runtime_1.jsx)("div", { style: styles.spinner }), (0, jsx_runtime_1.jsx)("p", { children: "Processing..." })] }))] })] }));
+    const handleSelectFolder = (0, react_1.useCallback)((path) => {
+        setSelectedFolderPath(path);
+        setSelectedImageIds(new Set());
+    }, []);
+    const handleLoadFolderChildren = (0, react_1.useCallback)(async (path) => {
+        try {
+            const subdirs = await window.electronAPI.directory.getSubdirectories(path);
+            if (!subdirs.success || !subdirs.data)
+                return [];
+            const nodes = [];
+            for (const subdirPath of subdirs.data) {
+                const name = subdirPath.split('/').pop() || subdirPath;
+                const contentsResponse = await window.electronAPI.directory.getContents(subdirPath);
+                const imageCount = contentsResponse.success
+                    ? (contentsResponse.data || []).filter(f => f.isImage).length
+                    : 0;
+                nodes.push({
+                    path: subdirPath,
+                    name,
+                    hasImages: imageCount > 0,
+                    imageCount,
+                    isLoaded: false,
+                    isExpanded: false,
+                    depth: 1
+                });
+            }
+            return nodes;
+        }
+        catch (err) {
+            console.error('Failed to load folder children:', err);
+            return [];
+        }
+    }, []);
+    const handleSelectImage = (0, react_1.useCallback)((id, multiSelect) => {
+        setSelectedImageIds(prev => {
+            const next = new Set(multiSelect ? prev : []);
+            if (next.has(id)) {
+                next.delete(id);
+            }
+            else {
+                next.add(id);
+            }
+            return next;
+        });
+    }, []);
+    const handleDoubleClickImage = (0, react_1.useCallback)((id) => {
+        const image = images.find(img => img.id === id);
+        if (image) {
+            setDetailImagePath(image.path);
+        }
+    }, [images]);
+    const handleCloseDetail = (0, react_1.useCallback)(() => {
+        setDetailImagePath(null);
+    }, []);
+    const handleNavigateDetail = (0, react_1.useCallback)((imagePath) => {
+        setDetailImagePath(imagePath);
+    }, []);
+    const handleLoadThumbnail = (0, react_1.useCallback)(async (imagePath) => {
+        try {
+            const response = await window.electronAPI.thumbnail.getAsDataUrl(imagePath);
+            if (response.success && response.data) {
+                return response.data;
+            }
+            return '';
+        }
+        catch (err) {
+            console.error('Failed to load thumbnail:', err);
+            return '';
+        }
+    }, []);
+    // Render setup view
+    if (view === 'setup') {
+        return ((0, jsx_runtime_1.jsxs)("div", { className: "min-h-screen bg-gray-100 p-5 text-gray-800", children: [(0, jsx_runtime_1.jsxs)("header", { className: "text-center mb-8", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-3xl font-bold text-gray-800 mb-2", children: "Photo Management App" }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-gray-500", children: "Electron + React + TypeScript" })] }), error && ((0, jsx_runtime_1.jsxs)("div", { className: "bg-red-500 text-white px-4 py-3 rounded-lg mb-5 flex justify-between items-center max-w-3xl mx-auto", children: [(0, jsx_runtime_1.jsx)("span", { children: error }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setError(null), className: "bg-transparent border-none text-white text-lg cursor-pointer px-1 hover:opacity-80", children: "x" })] })), (0, jsx_runtime_1.jsx)("main", { className: "max-w-3xl mx-auto", children: (0, jsx_runtime_1.jsx)(DirectorySelector_1.DirectorySelector, { currentDirectory: currentDirectory, onDirectorySelected: handleDirectorySelected, onClearDirectory: handleClearDirectory, isLoading: isLoading }) }), isLoading && ((0, jsx_runtime_1.jsxs)("div", { className: "fixed inset-0 bg-black/50 flex flex-col items-center justify-center text-white", children: [(0, jsx_runtime_1.jsx)("div", { className: "w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4" }), (0, jsx_runtime_1.jsx)("p", { children: "Processing..." })] }))] }));
+    }
+    // Render browser view
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "h-screen flex flex-col bg-gray-100", children: [(0, jsx_runtime_1.jsxs)("header", { className: "bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center gap-3", children: [(0, jsx_runtime_1.jsx)("h1", { className: "text-xl font-semibold text-gray-800", children: "Photo App" }), (0, jsx_runtime_1.jsx)("span", { className: "text-sm text-gray-400", children: "|" }), (0, jsx_runtime_1.jsx)("span", { className: "text-sm text-gray-500 truncate max-w-md", children: currentDirectory?.path })] }), (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center gap-4", children: [(0, jsx_runtime_1.jsxs)("div", { className: "text-sm text-gray-500", children: [(0, jsx_runtime_1.jsx)("span", { className: "font-medium text-blue-600", children: stats.imageCount }), " images", stats.duplicateCount > 0 && ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { className: "mx-2", children: "|" }), (0, jsx_runtime_1.jsx)("span", { className: "font-medium text-orange-500", children: stats.duplicateCount }), " duplicate groups"] }))] }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setView('setup'), className: "text-sm text-gray-600 hover:text-gray-800", children: "Settings" })] })] }), error && ((0, jsx_runtime_1.jsxs)("div", { className: "bg-red-500 text-white px-4 py-2 flex justify-between items-center", children: [(0, jsx_runtime_1.jsx)("span", { children: error }), (0, jsx_runtime_1.jsx)("button", { onClick: () => setError(null), className: "hover:opacity-80", children: "x" })] })), (0, jsx_runtime_1.jsx)("main", { className: "flex-1 overflow-hidden", children: (0, jsx_runtime_1.jsx)(SplitPane_1.SplitPane, { leftPanel: (0, jsx_runtime_1.jsx)(FolderTree_1.FolderTree, { rootPath: currentDirectory?.path || null, selectedPath: selectedFolderPath, onSelectFolder: handleSelectFolder, onLoadChildren: handleLoadFolderChildren, className: "h-full" }), rightPanel: (0, jsx_runtime_1.jsxs)("div", { className: "h-full w-full bg-white", children: [(0, jsx_runtime_1.jsxs)("div", { className: "px-4 py-2 border-b border-gray-200 flex items-center justify-between", children: [(0, jsx_runtime_1.jsx)("div", { className: "text-sm text-gray-600", children: selectedFolderPath ? ((0, jsx_runtime_1.jsxs)(jsx_runtime_1.Fragment, { children: [(0, jsx_runtime_1.jsx)("span", { className: "font-medium", children: images.length }), " images", selectedImageIds.size > 0 && ((0, jsx_runtime_1.jsxs)("span", { className: "ml-2 text-blue-600", children: ["(", selectedImageIds.size, " selected)"] }))] })) : ('Select a folder') }), (0, jsx_runtime_1.jsx)("div", { className: "flex items-center gap-2" })] }), (0, jsx_runtime_1.jsx)("div", { className: "h-[calc(100%-48px)] w-full", children: (0, jsx_runtime_1.jsx)(ThumbnailGrid_1.ThumbnailGrid, { images: images, selectedIds: selectedImageIds, onSelectImage: handleSelectImage, onDoubleClickImage: handleDoubleClickImage, onLoadThumbnail: handleLoadThumbnail }) })] }), defaultLeftWidth: 280, minLeftWidth: 200, maxLeftWidth: 400 }) }), isLoading && ((0, jsx_runtime_1.jsxs)("div", { className: "fixed inset-0 bg-black/50 flex flex-col items-center justify-center text-white z-50", children: [(0, jsx_runtime_1.jsx)("div", { className: "w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4" }), (0, jsx_runtime_1.jsx)("p", { children: "Processing..." })] })), detailImagePath && ((0, jsx_runtime_1.jsx)(PhotoDetail_1.PhotoDetail, { imagePath: detailImagePath, allImages: images, onClose: handleCloseDetail, onNavigate: handleNavigateDetail }))] }));
 };
 exports.App = App;
-const styles = {
-    container: {
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-        margin: 0,
-        padding: '20px',
-        backgroundColor: '#f5f5f5',
-        minHeight: '100vh',
-        color: '#333'
-    },
-    header: {
-        textAlign: 'center',
-        marginBottom: '30px'
-    },
-    title: {
-        fontSize: '28px',
-        margin: '0 0 10px 0',
-        color: '#2c3e50'
-    },
-    subtitle: {
-        fontSize: '14px',
-        color: '#7f8c8d',
-        margin: 0
-    },
-    errorBanner: {
-        backgroundColor: '#e74c3c',
-        color: 'white',
-        padding: '12px 16px',
-        borderRadius: '6px',
-        marginBottom: '20px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-    },
-    closeButton: {
-        background: 'none',
-        border: 'none',
-        color: 'white',
-        fontSize: '18px',
-        cursor: 'pointer',
-        padding: '0 4px'
-    },
-    main: {
-        maxWidth: '800px',
-        margin: '0 auto',
-        position: 'relative'
-    },
-    statsSection: {
-        backgroundColor: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        marginTop: '20px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    },
-    sectionTitle: {
-        fontSize: '18px',
-        margin: '0 0 16px 0',
-        color: '#2c3e50'
-    },
-    statsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '16px',
-        marginBottom: '16px'
-    },
-    statCard: {
-        textAlign: 'center',
-        padding: '16px',
-        backgroundColor: '#ecf0f1',
-        borderRadius: '6px'
-    },
-    statNumber: {
-        fontSize: '24px',
-        fontWeight: 'bold',
-        color: '#3498db',
-        marginBottom: '4px'
-    },
-    statLabel: {
-        fontSize: '12px',
-        color: '#7f8c8d',
-        textTransform: 'uppercase'
-    },
-    lastScan: {
-        fontSize: '12px',
-        color: '#95a5a6',
-        margin: 0,
-        textAlign: 'center'
-    },
-    eventsSection: {
-        backgroundColor: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        marginTop: '20px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-    },
-    eventsList: {
-        maxHeight: '200px',
-        overflowY: 'auto'
-    },
-    eventItem: {
-        padding: '8px 12px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '4px',
-        marginBottom: '8px',
-        fontSize: '13px',
-        fontFamily: 'Monaco, Consolas, monospace',
-        color: '#495057'
-    },
-    loadingOverlay: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        fontSize: '16px'
-    },
-    spinner: {
-        width: '40px',
-        height: '40px',
-        border: '4px solid rgba(255,255,255,0.3)',
-        borderTop: '4px solid white',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-        marginBottom: '16px'
-    }
-};
 //# sourceMappingURL=App.js.map

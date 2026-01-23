@@ -39,6 +39,10 @@ exports.removeIpcHandlers = removeIpcHandlers;
 const electron_1 = require("electron");
 const database_1 = require("./database");
 const directory_service_1 = require("./directory-service");
+const thumbnail_service_1 = require("./thumbnail-service");
+const exif_service_1 = require("./exif-service");
+const hash_service_1 = require("./hash-service");
+const trash_service_1 = require("./trash-service");
 const path = __importStar(require("path"));
 // Helper function to create standardized responses
 function createResponse(success, data, error) {
@@ -65,6 +69,28 @@ function handleSyncIpc(handler) {
         console.error('IPC handler error:', error);
         return createResponse(false, undefined, error instanceof Error ? error.message : 'Unknown error');
     }
+}
+// Security: Validate that a file path is within the configured root directory
+function isFilePathAllowed(filepath) {
+    const directoryService = (0, directory_service_1.getDirectoryService)();
+    const rootPath = directoryService.getRootDirectory();
+    if (!rootPath) {
+        return false; // No root configured = deny all file access
+    }
+    try {
+        const resolvedPath = path.resolve(filepath);
+        const resolvedRoot = path.resolve(rootPath);
+        // Ensure the path is within the root directory
+        return resolvedPath === resolvedRoot ||
+            resolvedPath.startsWith(resolvedRoot + path.sep);
+    }
+    catch {
+        return false;
+    }
+}
+// Validate multiple file paths
+function areFilePathsAllowed(filepaths) {
+    return filepaths.every(fp => isFilePathAllowed(fp));
 }
 function setupIpcHandlers() {
     // Dialog handlers
@@ -350,6 +376,335 @@ function setupIpcHandlers() {
         return handleAsyncIpc(async () => {
             const db = (0, database_1.getDatabase)();
             return db.getDuplicateCount();
+        });
+    });
+    // Database handlers - Images by directory
+    electron_1.ipcMain.handle('database:getImagesByDirectory', async (event, directory) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getImagesByDirectory(directory);
+        });
+    });
+    electron_1.ipcMain.handle('database:getImageCountByDirectory', async (event, directory) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getImageCountByDirectory(directory);
+        });
+    });
+    electron_1.ipcMain.handle('database:searchImages', async (event, query) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.searchImages(query);
+        });
+    });
+    // Thumbnail service handlers
+    electron_1.ipcMain.handle('thumbnail:get', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return await thumbnailService.getThumbnail(imagePath);
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:getAsDataUrl', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            console.log('Generating thumbnail for:', imagePath);
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            const dataUrl = await thumbnailService.getThumbnailAsDataUrl(imagePath);
+            console.log('Thumbnail generated, data URL length:', dataUrl.length);
+            return dataUrl;
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:generate', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return await thumbnailService.generateThumbnail(imagePath);
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:exists', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return thumbnailService.thumbnailExists(imagePath);
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:delete', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return await thumbnailService.deleteThumbnail(imagePath);
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:clearCache', async () => {
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return await thumbnailService.clearCache();
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:getCacheSize', async () => {
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return await thumbnailService.getCacheSize();
+        });
+    });
+    electron_1.ipcMain.handle('thumbnail:getCacheCount', async () => {
+        return handleAsyncIpc(async () => {
+            const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
+            return await thumbnailService.getCacheCount();
+        });
+    });
+    // EXIF service handlers
+    electron_1.ipcMain.handle('exif:extract', async (event, filepath, options) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const exifService = (0, exif_service_1.getExifService)();
+            return await exifService.extractExif(filepath, options);
+        });
+    });
+    electron_1.ipcMain.handle('exif:getGps', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const exifService = (0, exif_service_1.getExifService)();
+            return await exifService.getGpsCoordinates(filepath);
+        });
+    });
+    electron_1.ipcMain.handle('exif:getCaptureDate', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const exifService = (0, exif_service_1.getExifService)();
+            return await exifService.getCaptureDate(filepath);
+        });
+    });
+    electron_1.ipcMain.handle('exif:getCameraInfo', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const exifService = (0, exif_service_1.getExifService)();
+            return await exifService.getCameraInfo(filepath);
+        });
+    });
+    // Hash service handlers
+    electron_1.ipcMain.handle('hash:hashFile', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const hashService = (0, hash_service_1.getHashService)();
+            return await hashService.hashFile(filepath);
+        });
+    });
+    electron_1.ipcMain.handle('hash:hashFiles', async (event, filepaths) => {
+        if (!areFilePathsAllowed(filepaths)) {
+            return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const hashService = (0, hash_service_1.getHashService)();
+            return await hashService.hashFiles(filepaths);
+        });
+    });
+    electron_1.ipcMain.handle('hash:findDuplicates', async (event, filepaths) => {
+        if (!areFilePathsAllowed(filepaths)) {
+            return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const hashService = (0, hash_service_1.getHashService)();
+            const { results } = await hashService.hashFiles(filepaths);
+            return hashService.findDuplicates(results);
+        });
+    });
+    electron_1.ipcMain.handle('hash:scanDirectoryForDuplicates', async (event, dirPath, recursive) => {
+        if (!isFilePathAllowed(dirPath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const hashService = (0, hash_service_1.getHashService)();
+            return await hashService.scanDirectoryForDuplicates(dirPath, recursive);
+        });
+    });
+    // Trash service handlers
+    electron_1.ipcMain.handle('trash:trashFile', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const trashService = (0, trash_service_1.getTrashService)();
+            return await trashService.trashFile(filepath);
+        });
+    });
+    electron_1.ipcMain.handle('trash:trashFiles', async (event, filepaths) => {
+        if (!areFilePathsAllowed(filepaths)) {
+            return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const trashService = (0, trash_service_1.getTrashService)();
+            return await trashService.trashFiles(filepaths);
+        });
+    });
+    electron_1.ipcMain.handle('trash:canTrash', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const trashService = (0, trash_service_1.getTrashService)();
+            return await trashService.canTrash(filepath);
+        });
+    });
+    electron_1.ipcMain.handle('trash:getFileInfo', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
+        return handleAsyncIpc(async () => {
+            const trashService = (0, trash_service_1.getTrashService)();
+            return await trashService.getFileInfo(filepath);
+        });
+    });
+    // Tag handlers
+    electron_1.ipcMain.handle('tags:create', async (event, name, color) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.createTag(name, color);
+        });
+    });
+    electron_1.ipcMain.handle('tags:get', async (event, id) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getTag(id);
+        });
+    });
+    electron_1.ipcMain.handle('tags:getByName', async (event, name) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getTagByName(name);
+        });
+    });
+    electron_1.ipcMain.handle('tags:getAll', async () => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getAllTags();
+        });
+    });
+    electron_1.ipcMain.handle('tags:update', async (event, id, updates) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.updateTag(id, updates);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('tags:delete', async (event, id) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.deleteTag(id);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('tags:addToImage', async (event, imageId, tagId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.addTagToImage(imageId, tagId);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('tags:removeFromImage', async (event, imageId, tagId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.removeTagFromImage(imageId, tagId);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('tags:getForImage', async (event, imageId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getTagsForImage(imageId);
+        });
+    });
+    electron_1.ipcMain.handle('tags:getImages', async (event, tagId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getImagesByTag(tagId);
+        });
+    });
+    // Album handlers
+    electron_1.ipcMain.handle('albums:create', async (event, name, description) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.createAlbum(name, description);
+        });
+    });
+    electron_1.ipcMain.handle('albums:get', async (event, id) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getAlbum(id);
+        });
+    });
+    electron_1.ipcMain.handle('albums:getAll', async () => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getAllAlbums();
+        });
+    });
+    electron_1.ipcMain.handle('albums:update', async (event, id, updates) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.updateAlbum(id, updates);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('albums:delete', async (event, id) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.deleteAlbum(id);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('albums:addImage', async (event, albumId, imageId, position) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.addImageToAlbum(albumId, imageId, position);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('albums:removeImage', async (event, albumId, imageId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.removeImageFromAlbum(albumId, imageId);
+            return true;
+        });
+    });
+    electron_1.ipcMain.handle('albums:getImages', async (event, albumId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getImagesInAlbum(albumId);
+        });
+    });
+    electron_1.ipcMain.handle('albums:getForImage', async (event, imageId) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            return db.getAlbumsForImage(imageId);
+        });
+    });
+    electron_1.ipcMain.handle('albums:reorderImages', async (event, albumId, imageIds) => {
+        return handleAsyncIpc(async () => {
+            const db = (0, database_1.getDatabase)();
+            db.reorderAlbumImages(albumId, imageIds);
+            return true;
         });
     });
     // Utility handlers

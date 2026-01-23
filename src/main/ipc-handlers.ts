@@ -1,6 +1,10 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { getDatabase } from './database';
 import { getDirectoryService } from './directory-service';
+import { getThumbnailService } from './thumbnail-service';
+import { getExifService } from './exif-service';
+import { getHashService } from './hash-service';
+import { getTrashService } from './trash-service';
 import * as path from 'path';
 
 export interface IpcResponse<T = any> {
@@ -38,6 +42,32 @@ function handleSyncIpc<T>(
     console.error('IPC handler error:', error);
     return createResponse<T>(false, undefined, error instanceof Error ? error.message : 'Unknown error');
   }
+}
+
+// Security: Validate that a file path is within the configured root directory
+function isFilePathAllowed(filepath: string): boolean {
+  const directoryService = getDirectoryService();
+  const rootPath = directoryService.getRootDirectory();
+
+  if (!rootPath) {
+    return false; // No root configured = deny all file access
+  }
+
+  try {
+    const resolvedPath = path.resolve(filepath);
+    const resolvedRoot = path.resolve(rootPath);
+
+    // Ensure the path is within the root directory
+    return resolvedPath === resolvedRoot ||
+           resolvedPath.startsWith(resolvedRoot + path.sep);
+  } catch {
+    return false;
+  }
+}
+
+// Validate multiple file paths
+function areFilePathsAllowed(filepaths: string[]): boolean {
+  return filepaths.every(fp => isFilePathAllowed(fp));
 }
 
 export function setupIpcHandlers(): void {
@@ -370,6 +400,378 @@ export function setupIpcHandlers(): void {
     return handleAsyncIpc(async () => {
       const db = getDatabase();
       return db.getDuplicateCount();
+    });
+  });
+
+  // Database handlers - Images by directory
+  ipcMain.handle('database:getImagesByDirectory', async (event, directory: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getImagesByDirectory(directory);
+    });
+  });
+
+  ipcMain.handle('database:getImageCountByDirectory', async (event, directory: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getImageCountByDirectory(directory);
+    });
+  });
+
+  ipcMain.handle('database:searchImages', async (event, query: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.searchImages(query);
+    });
+  });
+
+  // Thumbnail service handlers
+  ipcMain.handle('thumbnail:get', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return await thumbnailService.getThumbnail(imagePath);
+    });
+  });
+
+  ipcMain.handle('thumbnail:getAsDataUrl', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      console.log('Generating thumbnail for:', imagePath);
+      const thumbnailService = getThumbnailService();
+      const dataUrl = await thumbnailService.getThumbnailAsDataUrl(imagePath);
+      console.log('Thumbnail generated, data URL length:', dataUrl.length);
+      return dataUrl;
+    });
+  });
+
+  ipcMain.handle('thumbnail:generate', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return await thumbnailService.generateThumbnail(imagePath);
+    });
+  });
+
+  ipcMain.handle('thumbnail:exists', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return thumbnailService.thumbnailExists(imagePath);
+    });
+  });
+
+  ipcMain.handle('thumbnail:delete', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return await thumbnailService.deleteThumbnail(imagePath);
+    });
+  });
+
+  ipcMain.handle('thumbnail:clearCache', async () => {
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return await thumbnailService.clearCache();
+    });
+  });
+
+  ipcMain.handle('thumbnail:getCacheSize', async () => {
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return await thumbnailService.getCacheSize();
+    });
+  });
+
+  ipcMain.handle('thumbnail:getCacheCount', async () => {
+    return handleAsyncIpc(async () => {
+      const thumbnailService = getThumbnailService();
+      return await thumbnailService.getCacheCount();
+    });
+  });
+
+  // EXIF service handlers
+  ipcMain.handle('exif:extract', async (event, filepath: string, options?: any) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const exifService = getExifService();
+      return await exifService.extractExif(filepath, options);
+    });
+  });
+
+  ipcMain.handle('exif:getGps', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const exifService = getExifService();
+      return await exifService.getGpsCoordinates(filepath);
+    });
+  });
+
+  ipcMain.handle('exif:getCaptureDate', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const exifService = getExifService();
+      return await exifService.getCaptureDate(filepath);
+    });
+  });
+
+  ipcMain.handle('exif:getCameraInfo', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const exifService = getExifService();
+      return await exifService.getCameraInfo(filepath);
+    });
+  });
+
+  // Hash service handlers
+  ipcMain.handle('hash:hashFile', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const hashService = getHashService();
+      return await hashService.hashFile(filepath);
+    });
+  });
+
+  ipcMain.handle('hash:hashFiles', async (event, filepaths: string[]) => {
+    if (!areFilePathsAllowed(filepaths)) {
+      return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const hashService = getHashService();
+      return await hashService.hashFiles(filepaths);
+    });
+  });
+
+  ipcMain.handle('hash:findDuplicates', async (event, filepaths: string[]) => {
+    if (!areFilePathsAllowed(filepaths)) {
+      return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const hashService = getHashService();
+      const { results } = await hashService.hashFiles(filepaths);
+      return hashService.findDuplicates(results);
+    });
+  });
+
+  ipcMain.handle('hash:scanDirectoryForDuplicates', async (event, dirPath: string, recursive?: boolean) => {
+    if (!isFilePathAllowed(dirPath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const hashService = getHashService();
+      return await hashService.scanDirectoryForDuplicates(dirPath, recursive);
+    });
+  });
+
+  // Trash service handlers
+  ipcMain.handle('trash:trashFile', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const trashService = getTrashService();
+      return await trashService.trashFile(filepath);
+    });
+  });
+
+  ipcMain.handle('trash:trashFiles', async (event, filepaths: string[]) => {
+    if (!areFilePathsAllowed(filepaths)) {
+      return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const trashService = getTrashService();
+      return await trashService.trashFiles(filepaths);
+    });
+  });
+
+  ipcMain.handle('trash:canTrash', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const trashService = getTrashService();
+      return await trashService.canTrash(filepath);
+    });
+  });
+
+  ipcMain.handle('trash:getFileInfo', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const trashService = getTrashService();
+      return await trashService.getFileInfo(filepath);
+    });
+  });
+
+  // Tag handlers
+  ipcMain.handle('tags:create', async (event, name: string, color?: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.createTag(name, color);
+    });
+  });
+
+  ipcMain.handle('tags:get', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getTag(id);
+    });
+  });
+
+  ipcMain.handle('tags:getByName', async (event, name: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getTagByName(name);
+    });
+  });
+
+  ipcMain.handle('tags:getAll', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAllTags();
+    });
+  });
+
+  ipcMain.handle('tags:update', async (event, id: number, updates: { name?: string; color?: string }) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.updateTag(id, updates);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:delete', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.deleteTag(id);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:addToImage', async (event, imageId: number, tagId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.addTagToImage(imageId, tagId);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:removeFromImage', async (event, imageId: number, tagId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.removeTagFromImage(imageId, tagId);
+      return true;
+    });
+  });
+
+  ipcMain.handle('tags:getForImage', async (event, imageId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getTagsForImage(imageId);
+    });
+  });
+
+  ipcMain.handle('tags:getImages', async (event, tagId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getImagesByTag(tagId);
+    });
+  });
+
+  // Album handlers
+  ipcMain.handle('albums:create', async (event, name: string, description?: string) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.createAlbum(name, description);
+    });
+  });
+
+  ipcMain.handle('albums:get', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAlbum(id);
+    });
+  });
+
+  ipcMain.handle('albums:getAll', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAllAlbums();
+    });
+  });
+
+  ipcMain.handle('albums:update', async (event, id: number, updates: { name?: string; description?: string; coverImageId?: number }) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.updateAlbum(id, updates);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:delete', async (event, id: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.deleteAlbum(id);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:addImage', async (event, albumId: number, imageId: number, position?: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.addImageToAlbum(albumId, imageId, position);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:removeImage', async (event, albumId: number, imageId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.removeImageFromAlbum(albumId, imageId);
+      return true;
+    });
+  });
+
+  ipcMain.handle('albums:getImages', async (event, albumId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getImagesInAlbum(albumId);
+    });
+  });
+
+  ipcMain.handle('albums:getForImage', async (event, imageId: number) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAlbumsForImage(imageId);
+    });
+  });
+
+  ipcMain.handle('albums:reorderImages', async (event, albumId: number, imageIds: number[]) => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      db.reorderAlbumImages(albumId, imageIds);
+      return true;
     });
   });
 
