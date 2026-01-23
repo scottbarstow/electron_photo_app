@@ -23,6 +23,7 @@ interface ExifPanelProps {
   exifData: ExifData | null;
   imagePath: string;
   onClose: () => void;
+  embedded?: boolean; // When true, renders without outer container and header
 }
 
 interface FileInfo {
@@ -33,7 +34,8 @@ interface FileInfo {
 export const ExifPanel: React.FC<ExifPanelProps> = ({
   exifData,
   imagePath,
-  onClose
+  onClose,
+  embedded = false
 }) => {
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -157,23 +159,9 @@ export const ExifPanel: React.FC<ExifPanelProps> = ({
     </div>
   );
 
-  return (
-    <div className="w-80 bg-gray-900 border-l border-gray-700 h-full overflow-y-auto flex-shrink-0">
-      {/* Header */}
-      <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
-        <h3 className="text-white font-medium">Photo Info</h3>
-        <button
-          onClick={onClose}
-          className="p-1 text-gray-400 hover:text-white transition-colors"
-          title="Close panel"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="p-4 space-y-4">
+  // Content that's shared between embedded and standalone modes
+  const content = (
+    <div className={embedded ? "space-y-4" : "p-4 space-y-4"}>
         {/* Date Section */}
         <div className="border-b border-gray-700 pb-4">
           <InfoRow label="Date Taken" value={formatDate(exifData?.dateTaken)} />
@@ -286,6 +274,31 @@ export const ExifPanel: React.FC<ExifPanelProps> = ({
           <p className="text-gray-500 text-xs break-all">{imagePath}</p>
         </div>
       </div>
+  );
+
+  // If embedded, just return the content without the outer container
+  if (embedded) {
+    return <div className="p-4">{content}</div>;
+  }
+
+  // Standalone mode with full container and header
+  return (
+    <div className="w-80 bg-gray-900 border-l border-gray-700 h-full overflow-y-auto flex-shrink-0">
+      {/* Header */}
+      <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+        <h3 className="text-white font-medium">Photo Info</h3>
+        <button
+          onClick={onClose}
+          className="p-1 text-gray-400 hover:text-white transition-colors"
+          title="Close panel"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {content}
     </div>
   );
 };

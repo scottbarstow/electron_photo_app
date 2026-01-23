@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DirectorySelector } from './components/DirectorySelector';
 import { SplitPane } from './components/SplitPane';
-import { FolderTree, FolderNode } from './components/FolderTree';
+import { FolderNode } from './components/FolderTree';
+import { Sidebar } from './components/Sidebar';
 import { ThumbnailGrid, ImageItem } from './components/ThumbnailGrid';
 import { PhotoDetail } from './components/PhotoDetail';
 import { DuplicateReview } from './components/DuplicateReview';
+import { QuickTagMenu } from './components/QuickTagMenu';
+import { BatchActions } from './components/BatchActions';
+import { AlbumManager } from './components/AlbumManager';
 
 // Define the electronAPI interface for TypeScript
 interface IpcResponse<T = any> {
@@ -29,6 +33,38 @@ interface ScanResult {
   totalWastedBytes: number;
   totalDuplicateFiles: number;
   totalGroups: number;
+}
+
+// Tag and Album types
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  created?: number;
+}
+
+export interface Album {
+  id: number;
+  name: string;
+  description?: string;
+  coverImageId?: number;
+  created?: number;
+  updated?: number;
+}
+
+export interface ImageRecord {
+  id: number;
+  path: string;
+  filename: string;
+  directory?: string;
+  size?: number;
+  modified?: number;
+  hash?: string;
+  width?: number;
+  height?: number;
+  dateTaken?: number;
+  cameraMake?: string;
+  cameraModel?: string;
 }
 
 interface ElectronAPI {
@@ -69,6 +105,30 @@ interface ElectronAPI {
   shell: {
     openInFinder: (folderPath: string) => Promise<IpcResponse<boolean>>;
   };
+  tags: {
+    create: (name: string, color?: string) => Promise<IpcResponse<number>>;
+    get: (id: number) => Promise<IpcResponse<Tag>>;
+    getByName: (name: string) => Promise<IpcResponse<Tag>>;
+    getAll: () => Promise<IpcResponse<Tag[]>>;
+    update: (id: number, updates: { name?: string; color?: string }) => Promise<IpcResponse<void>>;
+    delete: (id: number) => Promise<IpcResponse<void>>;
+    addToImage: (imageId: number, tagId: number) => Promise<IpcResponse<void>>;
+    removeFromImage: (imageId: number, tagId: number) => Promise<IpcResponse<void>>;
+    getForImage: (imageId: number) => Promise<IpcResponse<Tag[]>>;
+    getImages: (tagId: number) => Promise<IpcResponse<ImageRecord[]>>;
+  };
+  albums: {
+    create: (name: string, description?: string) => Promise<IpcResponse<number>>;
+    get: (id: number) => Promise<IpcResponse<Album>>;
+    getAll: () => Promise<IpcResponse<Album[]>>;
+    update: (id: number, updates: { name?: string; description?: string; coverImageId?: number }) => Promise<IpcResponse<void>>;
+    delete: (id: number) => Promise<IpcResponse<void>>;
+    addImage: (albumId: number, imageId: number, position?: number) => Promise<IpcResponse<void>>;
+    removeImage: (albumId: number, imageId: number) => Promise<IpcResponse<void>>;
+    getImages: (albumId: number) => Promise<IpcResponse<ImageRecord[]>>;
+    getForImage: (imageId: number) => Promise<IpcResponse<Album[]>>;
+    reorderImages: (albumId: number, imageIds: number[]) => Promise<IpcResponse<void>>;
+  };
 }
 
 declare global {
@@ -105,6 +165,20 @@ export const App: React.FC = () => {
   const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
   const [detailImagePath, setDetailImagePath] = useState<string | null>(null);
 
+  // Quick tag menu state
+  const [quickTagMenu, setQuickTagMenu] = useState<{
+    x: number;
+    y: number;
+    imageIds: number[];
+  } | null>(null);
+
+  // Manager modals state
+  const [showAlbumManager, setShowAlbumManager] = useState(false);
+
+  // Tag/Album filtering state
+  const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+
   // Load initial directory and stats on component mount
   useEffect(() => {
     loadInitialData();
@@ -121,14 +195,18 @@ export const App: React.FC = () => {
     }
   }, [currentDirectory]);
 
-  // Load images when folder selection changes
+  // Load images when folder, tag, or album selection changes
   useEffect(() => {
-    if (selectedFolderPath) {
+    if (selectedTag) {
+      loadImagesForTag(selectedTag.id);
+    } else if (selectedAlbum) {
+      loadImagesForAlbum(selectedAlbum.id);
+    } else if (selectedFolderPath) {
       loadImagesForFolder(selectedFolderPath);
     } else {
       setImages([]);
     }
-  }, [selectedFolderPath]);
+  }, [selectedFolderPath, selectedTag, selectedAlbum]);
 
   const loadInitialData = async () => {
     try {
@@ -225,6 +303,46 @@ export const App: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load images:', err);
+      setImages([]);
+    }
+  };
+
+  const loadImagesForTag = async (tagId: number) => {
+    try {
+      console.log('Loading images for tag:', tagId);
+      const response = await window.electronAPI.tags.getImages(tagId);
+      if (response.success && response.data) {
+        console.log('Found', response.data.length, 'images for tag');
+        setImages(response.data.map(img => ({
+          id: img.id,
+          path: img.path,
+          filename: img.filename
+        })));
+      } else {
+        setImages([]);
+      }
+    } catch (err) {
+      console.error('Failed to load images for tag:', err);
+      setImages([]);
+    }
+  };
+
+  const loadImagesForAlbum = async (albumId: number) => {
+    try {
+      console.log('Loading images for album:', albumId);
+      const response = await window.electronAPI.albums.getImages(albumId);
+      if (response.success && response.data) {
+        console.log('Found', response.data.length, 'images in album');
+        setImages(response.data.map(img => ({
+          id: img.id,
+          path: img.path,
+          filename: img.filename
+        })));
+      } else {
+        setImages([]);
+      }
+    } catch (err) {
+      console.error('Failed to load images for album:', err);
       setImages([]);
     }
   };
@@ -366,6 +484,39 @@ export const App: React.FC = () => {
     }
   }, [selectedFolderPath]);
 
+  // Handle context menu (right-click) on thumbnails
+  const handleContextMenu = useCallback((x: number, y: number, imageIds: number[]) => {
+    setQuickTagMenu({ x, y, imageIds });
+  }, []);
+
+  // Handle tags changed from quick tag menu
+  const handleQuickTagsChanged = useCallback(() => {
+    // Force re-render of thumbnail grid to show updated tags
+    // This is done by reloading the images which will trigger tag reload
+    if (selectedFolderPath) {
+      loadImagesForFolder(selectedFolderPath);
+    }
+  }, [selectedFolderPath]);
+
+  // Clear all selected images
+  const handleClearSelection = useCallback(() => {
+    setSelectedImageIds(new Set());
+  }, []);
+
+  // Handle tag selection for filtering
+  const handleSelectTag = useCallback((tag: Tag | null) => {
+    setSelectedTag(tag);
+    setSelectedAlbum(null);
+    setSelectedImageIds(new Set());
+  }, []);
+
+  // Handle album selection for filtering
+  const handleSelectAlbum = useCallback((album: Album | null) => {
+    setSelectedAlbum(album);
+    setSelectedTag(null);
+    setSelectedImageIds(new Set());
+  }, []);
+
   // Render setup view
   if (view === 'setup') {
     return (
@@ -446,6 +597,13 @@ export const App: React.FC = () => {
           </div>
 
           <button
+            onClick={() => setShowAlbumManager(true)}
+            className="px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+          >
+            Albums
+          </button>
+
+          <button
             onClick={() => setView('duplicates')}
             className="px-3 py-1.5 text-sm bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
           >
@@ -473,11 +631,15 @@ export const App: React.FC = () => {
       <main className="flex-1 overflow-hidden">
         <SplitPane
           leftPanel={
-            <FolderTree
+            <Sidebar
               rootPath={currentDirectory?.path || null}
-              selectedPath={selectedFolderPath}
+              selectedFolderPath={selectedFolderPath}
               onSelectFolder={handleSelectFolder}
-              onLoadChildren={handleLoadFolderChildren}
+              onLoadFolderChildren={handleLoadFolderChildren}
+              onSelectTag={handleSelectTag}
+              onSelectAlbum={handleSelectAlbum}
+              selectedTagId={selectedTag?.id || null}
+              selectedAlbumId={selectedAlbum?.id || null}
               className="h-full"
             />
           }
@@ -486,33 +648,78 @@ export const App: React.FC = () => {
               {/* Toolbar */}
               <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  {selectedFolderPath ? (
+                  {selectedTag ? (
+                    <>
+                      <span
+                        className="w-3 h-3 rounded-full inline-block mr-1"
+                        style={{ backgroundColor: selectedTag.color }}
+                      />
+                      <span className="font-medium">{selectedTag.name}</span>
+                      <span className="mx-1">-</span>
+                      <span>{images.length}</span> images
+                      {selectedImageIds.size > 0 && selectedImageIds.size < 2 && (
+                        <span className="ml-2 text-blue-600">
+                          ({selectedImageIds.size} selected)
+                        </span>
+                      )}
+                    </>
+                  ) : selectedAlbum ? (
+                    <>
+                      <span className="font-medium">{selectedAlbum.name}</span>
+                      <span className="mx-1">-</span>
+                      <span>{images.length}</span> images
+                      {selectedImageIds.size > 0 && selectedImageIds.size < 2 && (
+                        <span className="ml-2 text-blue-600">
+                          ({selectedImageIds.size} selected)
+                        </span>
+                      )}
+                    </>
+                  ) : selectedFolderPath ? (
                     <>
                       <span className="font-medium">{images.length}</span> images
-                      {selectedImageIds.size > 0 && (
+                      {selectedImageIds.size > 0 && selectedImageIds.size < 2 && (
                         <span className="ml-2 text-blue-600">
                           ({selectedImageIds.size} selected)
                         </span>
                       )}
                     </>
                   ) : (
-                    'Select a folder'
+                    'Select a folder, tag, or album'
                   )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* TODO: Add view mode toggle, sort options */}
+                  {/* Clear filter button when tag or album selected */}
+                  {(selectedTag || selectedAlbum) && (
+                    <button
+                      onClick={() => {
+                        setSelectedTag(null);
+                        setSelectedAlbum(null);
+                      }}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
                 </div>
               </div>
 
+              {/* Batch Actions Toolbar */}
+              <BatchActions
+                selectedIds={selectedImageIds}
+                onClearSelection={handleClearSelection}
+                onTagsChanged={handleQuickTagsChanged}
+              />
+
               {/* Thumbnail Grid */}
-              <div className="h-[calc(100%-48px)] w-full">
+              <div className={`w-full ${selectedImageIds.size >= 2 ? 'h-[calc(100%-88px)]' : 'h-[calc(100%-48px)]'}`}>
                 <ThumbnailGrid
                   images={images}
                   selectedIds={selectedImageIds}
                   onSelectImage={handleSelectImage}
                   onDoubleClickImage={handleDoubleClickImage}
                   onLoadThumbnail={handleLoadThumbnail}
+                  onContextMenu={handleContextMenu}
                 />
               </div>
             </div>
@@ -538,8 +745,28 @@ export const App: React.FC = () => {
           allImages={images}
           onClose={handleCloseDetail}
           onNavigate={handleNavigateDetail}
+          onTagsChanged={handleQuickTagsChanged}
         />
       )}
+
+      {/* Quick Tag Menu (context menu) */}
+      {quickTagMenu && (
+        <QuickTagMenu
+          x={quickTagMenu.x}
+          y={quickTagMenu.y}
+          imageIds={quickTagMenu.imageIds}
+          onClose={() => setQuickTagMenu(null)}
+          onTagsChanged={handleQuickTagsChanged}
+        />
+      )}
+
+      {/* Album Manager Modal */}
+      <AlbumManager
+        isOpen={showAlbumManager}
+        onClose={() => setShowAlbumManager(false)}
+        onAlbumsChanged={() => {}}
+        onLoadThumbnail={handleLoadThumbnail}
+      />
     </div>
   );
 };

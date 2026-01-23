@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ExifPanel, ExifData } from './ExifPanel';
+import { TagPanel } from './TagPanel';
 
 export interface PhotoDetailProps {
   imagePath: string;
   allImages: Array<{ id: number; path: string; filename: string }>;
   onClose: () => void;
   onNavigate: (imagePath: string) => void;
+  onTagsChanged?: () => void;
 }
 
 type ZoomMode = 'fit' | 'fill' | '100' | 'custom';
@@ -14,7 +16,8 @@ export const PhotoDetail: React.FC<PhotoDetailProps> = ({
   imagePath,
   allImages,
   onClose,
-  onNavigate
+  onNavigate,
+  onTagsChanged
 }) => {
   const [imageUrl, setImageUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -360,13 +363,45 @@ export const PhotoDetail: React.FC<PhotoDetailProps> = ({
         </div>
       </div>
 
-      {/* EXIF Panel */}
+      {/* Info Panel (Tags + EXIF) */}
       {showExif && (
-        <ExifPanel
-          exifData={exifData}
-          imagePath={imagePath}
-          onClose={() => setShowExif(false)}
-        />
+        <div className="w-80 h-full bg-gray-900 border-l border-gray-700 flex flex-col overflow-hidden">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+            <h3 className="text-white font-medium">Info</h3>
+            <button
+              onClick={() => setShowExif(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Close panel"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Tags Section */}
+            {currentImage && currentImage.id >= 0 && (
+              <div className="px-4 py-3 border-b border-gray-700">
+                <h4 className="text-gray-400 text-xs uppercase tracking-wider mb-2">Tags</h4>
+                <TagPanel
+                  imageId={currentImage.id}
+                  onTagsChanged={onTagsChanged}
+                />
+              </div>
+            )}
+
+            {/* EXIF Panel (embedded without its own header) */}
+            <ExifPanel
+              exifData={exifData}
+              imagePath={imagePath}
+              onClose={() => {}}
+              embedded={true}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
