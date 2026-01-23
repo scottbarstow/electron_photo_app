@@ -70,6 +70,28 @@ function handleSyncIpc(handler) {
         return createResponse(false, undefined, error instanceof Error ? error.message : 'Unknown error');
     }
 }
+// Security: Validate that a file path is within the configured root directory
+function isFilePathAllowed(filepath) {
+    const directoryService = (0, directory_service_1.getDirectoryService)();
+    const rootPath = directoryService.getRootDirectory();
+    if (!rootPath) {
+        return false; // No root configured = deny all file access
+    }
+    try {
+        const resolvedPath = path.resolve(filepath);
+        const resolvedRoot = path.resolve(rootPath);
+        // Ensure the path is within the root directory
+        return resolvedPath === resolvedRoot ||
+            resolvedPath.startsWith(resolvedRoot + path.sep);
+    }
+    catch {
+        return false;
+    }
+}
+// Validate multiple file paths
+function areFilePathsAllowed(filepaths) {
+    return filepaths.every(fp => isFilePathAllowed(fp));
+}
 function setupIpcHandlers() {
     // Dialog handlers
     electron_1.ipcMain.handle('dialog:openFile', async () => {
@@ -377,12 +399,18 @@ function setupIpcHandlers() {
     });
     // Thumbnail service handlers
     electron_1.ipcMain.handle('thumbnail:get', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
             return await thumbnailService.getThumbnail(imagePath);
         });
     });
     electron_1.ipcMain.handle('thumbnail:getAsDataUrl', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             console.log('Generating thumbnail for:', imagePath);
             const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
@@ -392,18 +420,27 @@ function setupIpcHandlers() {
         });
     });
     electron_1.ipcMain.handle('thumbnail:generate', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
             return await thumbnailService.generateThumbnail(imagePath);
         });
     });
     electron_1.ipcMain.handle('thumbnail:exists', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
             return thumbnailService.thumbnailExists(imagePath);
         });
     });
     electron_1.ipcMain.handle('thumbnail:delete', async (event, imagePath) => {
+        if (!isFilePathAllowed(imagePath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const thumbnailService = (0, thumbnail_service_1.getThumbnailService)();
             return await thumbnailService.deleteThumbnail(imagePath);
@@ -429,24 +466,36 @@ function setupIpcHandlers() {
     });
     // EXIF service handlers
     electron_1.ipcMain.handle('exif:extract', async (event, filepath, options) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const exifService = (0, exif_service_1.getExifService)();
             return await exifService.extractExif(filepath, options);
         });
     });
     electron_1.ipcMain.handle('exif:getGps', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const exifService = (0, exif_service_1.getExifService)();
             return await exifService.getGpsCoordinates(filepath);
         });
     });
     electron_1.ipcMain.handle('exif:getCaptureDate', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const exifService = (0, exif_service_1.getExifService)();
             return await exifService.getCaptureDate(filepath);
         });
     });
     electron_1.ipcMain.handle('exif:getCameraInfo', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const exifService = (0, exif_service_1.getExifService)();
             return await exifService.getCameraInfo(filepath);
@@ -454,18 +503,27 @@ function setupIpcHandlers() {
     });
     // Hash service handlers
     electron_1.ipcMain.handle('hash:hashFile', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const hashService = (0, hash_service_1.getHashService)();
             return await hashService.hashFile(filepath);
         });
     });
     electron_1.ipcMain.handle('hash:hashFiles', async (event, filepaths) => {
+        if (!areFilePathsAllowed(filepaths)) {
+            return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const hashService = (0, hash_service_1.getHashService)();
             return await hashService.hashFiles(filepaths);
         });
     });
     electron_1.ipcMain.handle('hash:findDuplicates', async (event, filepaths) => {
+        if (!areFilePathsAllowed(filepaths)) {
+            return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const hashService = (0, hash_service_1.getHashService)();
             const { results } = await hashService.hashFiles(filepaths);
@@ -473,6 +531,9 @@ function setupIpcHandlers() {
         });
     });
     electron_1.ipcMain.handle('hash:scanDirectoryForDuplicates', async (event, dirPath, recursive) => {
+        if (!isFilePathAllowed(dirPath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const hashService = (0, hash_service_1.getHashService)();
             return await hashService.scanDirectoryForDuplicates(dirPath, recursive);
@@ -480,24 +541,36 @@ function setupIpcHandlers() {
     });
     // Trash service handlers
     electron_1.ipcMain.handle('trash:trashFile', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const trashService = (0, trash_service_1.getTrashService)();
             return await trashService.trashFile(filepath);
         });
     });
     electron_1.ipcMain.handle('trash:trashFiles', async (event, filepaths) => {
+        if (!areFilePathsAllowed(filepaths)) {
+            return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const trashService = (0, trash_service_1.getTrashService)();
             return await trashService.trashFiles(filepaths);
         });
     });
     electron_1.ipcMain.handle('trash:canTrash', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const trashService = (0, trash_service_1.getTrashService)();
             return await trashService.canTrash(filepath);
         });
     });
     electron_1.ipcMain.handle('trash:getFileInfo', async (event, filepath) => {
+        if (!isFilePathAllowed(filepath)) {
+            return createResponse(false, undefined, 'Access denied: path outside root directory');
+        }
         return handleAsyncIpc(async () => {
             const trashService = (0, trash_service_1.getTrashService)();
             return await trashService.getFileInfo(filepath);

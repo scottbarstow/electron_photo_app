@@ -37,6 +37,7 @@ const electron_1 = require("electron");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const ipc_handlers_1 = require("./main/ipc-handlers");
+const directory_service_1 = require("./main/directory-service");
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
     electron_1.app.quit();
@@ -77,8 +78,19 @@ electron_1.app.whenReady().then(() => {
         const url = new URL(request.url);
         // pathname includes the leading /, e.g., /Users/sbarstow/Pictures/file.jpg
         const filePath = decodeURIComponent(url.pathname);
-        // Security check: ensure the path exists and is a file
+        // Security check: validate path is within the configured root directory
         try {
+            const directoryService = (0, directory_service_1.getDirectoryService)();
+            const rootPath = directoryService.getRootDirectory();
+            if (!rootPath) {
+                return new Response('Access denied: no root directory configured', { status: 403 });
+            }
+            const resolvedPath = path.resolve(filePath);
+            const resolvedRoot = path.resolve(rootPath);
+            // Ensure the path is within the root directory (prevent path traversal)
+            if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path.sep)) {
+                return new Response('Access denied: path outside root directory', { status: 403 });
+            }
             if (!fs.existsSync(filePath)) {
                 return new Response('File not found', { status: 404 });
             }

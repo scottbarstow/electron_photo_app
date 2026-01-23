@@ -104,7 +104,7 @@ export class DirectoryService {
 
   private isPathSafe(targetPath: string): boolean {
     if (!this.currentRootPath) {
-      return true; // Allow any path if no root is set
+      return false; // Deny all access when no root is configured (security)
     }
 
     try {

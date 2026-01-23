@@ -99,7 +99,7 @@ class DirectoryService {
     }
     isPathSafe(targetPath) {
         if (!this.currentRootPath) {
-            return true; // Allow any path if no root is set
+            return false; // Deny all access when no root is configured (security)
         }
         try {
             // Resolve paths to prevent directory traversal

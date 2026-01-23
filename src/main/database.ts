@@ -77,6 +77,8 @@ export class PhotoDatabase {
     this.db.pragma('synchronous = NORMAL');
     this.db.pragma('cache_size = 1000000');
     this.db.pragma('temp_store = memory');
+    // Enable foreign key enforcement (critical for referential integrity)
+    this.db.pragma('foreign_keys = ON');
 
     // Create tables
     this.createTables();

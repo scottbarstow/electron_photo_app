@@ -44,6 +44,32 @@ function handleSyncIpc<T>(
   }
 }
 
+// Security: Validate that a file path is within the configured root directory
+function isFilePathAllowed(filepath: string): boolean {
+  const directoryService = getDirectoryService();
+  const rootPath = directoryService.getRootDirectory();
+
+  if (!rootPath) {
+    return false; // No root configured = deny all file access
+  }
+
+  try {
+    const resolvedPath = path.resolve(filepath);
+    const resolvedRoot = path.resolve(rootPath);
+
+    // Ensure the path is within the root directory
+    return resolvedPath === resolvedRoot ||
+           resolvedPath.startsWith(resolvedRoot + path.sep);
+  } catch {
+    return false;
+  }
+}
+
+// Validate multiple file paths
+function areFilePathsAllowed(filepaths: string[]): boolean {
+  return filepaths.every(fp => isFilePathAllowed(fp));
+}
+
 export function setupIpcHandlers(): void {
   // Dialog handlers
   ipcMain.handle('dialog:openFile', async () => {
@@ -401,6 +427,9 @@ export function setupIpcHandlers(): void {
 
   // Thumbnail service handlers
   ipcMain.handle('thumbnail:get', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const thumbnailService = getThumbnailService();
       return await thumbnailService.getThumbnail(imagePath);
@@ -408,6 +437,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('thumbnail:getAsDataUrl', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       console.log('Generating thumbnail for:', imagePath);
       const thumbnailService = getThumbnailService();
@@ -418,6 +450,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('thumbnail:generate', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const thumbnailService = getThumbnailService();
       return await thumbnailService.generateThumbnail(imagePath);
@@ -425,6 +460,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('thumbnail:exists', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const thumbnailService = getThumbnailService();
       return thumbnailService.thumbnailExists(imagePath);
@@ -432,6 +470,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('thumbnail:delete', async (event, imagePath: string) => {
+    if (!isFilePathAllowed(imagePath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const thumbnailService = getThumbnailService();
       return await thumbnailService.deleteThumbnail(imagePath);
@@ -461,6 +502,9 @@ export function setupIpcHandlers(): void {
 
   // EXIF service handlers
   ipcMain.handle('exif:extract', async (event, filepath: string, options?: any) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const exifService = getExifService();
       return await exifService.extractExif(filepath, options);
@@ -468,6 +512,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('exif:getGps', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const exifService = getExifService();
       return await exifService.getGpsCoordinates(filepath);
@@ -475,6 +522,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('exif:getCaptureDate', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const exifService = getExifService();
       return await exifService.getCaptureDate(filepath);
@@ -482,6 +532,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('exif:getCameraInfo', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const exifService = getExifService();
       return await exifService.getCameraInfo(filepath);
@@ -490,6 +543,9 @@ export function setupIpcHandlers(): void {
 
   // Hash service handlers
   ipcMain.handle('hash:hashFile', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const hashService = getHashService();
       return await hashService.hashFile(filepath);
@@ -497,6 +553,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('hash:hashFiles', async (event, filepaths: string[]) => {
+    if (!areFilePathsAllowed(filepaths)) {
+      return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const hashService = getHashService();
       return await hashService.hashFiles(filepaths);
@@ -504,6 +563,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('hash:findDuplicates', async (event, filepaths: string[]) => {
+    if (!areFilePathsAllowed(filepaths)) {
+      return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const hashService = getHashService();
       const { results } = await hashService.hashFiles(filepaths);
@@ -512,6 +574,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('hash:scanDirectoryForDuplicates', async (event, dirPath: string, recursive?: boolean) => {
+    if (!isFilePathAllowed(dirPath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const hashService = getHashService();
       return await hashService.scanDirectoryForDuplicates(dirPath, recursive);
@@ -520,6 +585,9 @@ export function setupIpcHandlers(): void {
 
   // Trash service handlers
   ipcMain.handle('trash:trashFile', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const trashService = getTrashService();
       return await trashService.trashFile(filepath);
@@ -527,6 +595,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('trash:trashFiles', async (event, filepaths: string[]) => {
+    if (!areFilePathsAllowed(filepaths)) {
+      return createResponse(false, undefined, 'Access denied: one or more paths outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const trashService = getTrashService();
       return await trashService.trashFiles(filepaths);
@@ -534,6 +605,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('trash:canTrash', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const trashService = getTrashService();
       return await trashService.canTrash(filepath);
@@ -541,6 +615,9 @@ export function setupIpcHandlers(): void {
   });
 
   ipcMain.handle('trash:getFileInfo', async (event, filepath: string) => {
+    if (!isFilePathAllowed(filepath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
     return handleAsyncIpc(async () => {
       const trashService = getTrashService();
       return await trashService.getFileInfo(filepath);
