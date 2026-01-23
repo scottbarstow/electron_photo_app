@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { FixedSizeGrid as Grid, GridChildComponentProps } from 'react-window';
+import { Tag } from '../App';
 
 export interface ImageItem {
   id: number;
@@ -18,6 +19,7 @@ interface ThumbnailGridProps {
   onSelectImage: (id: number, multiSelect: boolean) => void;
   onDoubleClickImage: (id: number) => void;
   onLoadThumbnail: (path: string) => Promise<string>;
+  onContextMenu?: (x: number, y: number, imageIds: number[]) => void;
   thumbnailSize?: number;
   gap?: number;
   className?: string;
@@ -29,6 +31,7 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
   onSelectImage,
   onDoubleClickImage,
   onLoadThumbnail,
+  onContextMenu,
   thumbnailSize = 150,
   gap = 8,
   className = ''
@@ -37,6 +40,10 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
   const [containerWidth, setContainerWidth] = useState(0);
   const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map());
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
+
+  // Tag state - cache tags for each image ID
+  const [imageTags, setImageTags] = useState<Map<number, Tag[]>>(new Map());
+  const loadingTagsRef = useRef<Set<number>>(new Set());
 
   // Calculate grid dimensions
   const cellSize = thumbnailSize + gap;
@@ -113,6 +120,25 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
     return images[index] || null;
   }, [images, columnCount]);
 
+  // Load tags for an image
+  const loadTagsForImage = useCallback(async (imageId: number) => {
+    if (imageId < 0 || imageTags.has(imageId) || loadingTagsRef.current.has(imageId)) {
+      return;
+    }
+
+    loadingTagsRef.current.add(imageId);
+    try {
+      const response = await window.electronAPI.tags.getForImage(imageId);
+      if (response.success && response.data) {
+        setImageTags(prev => new Map(prev).set(imageId, response.data!));
+      }
+    } catch (err) {
+      console.error('Failed to load tags for image:', err);
+    } finally {
+      loadingTagsRef.current.delete(imageId);
+    }
+  }, [imageTags]);
+
   // Queue for images needing thumbnail load
   const pendingLoadsRef = useRef<Set<string>>(new Set());
   const [loadTrigger, setLoadTrigger] = useState(0);
@@ -147,12 +173,18 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
       const isSelected = selectedIds.has(image.id);
       const thumbnailUrl = thumbnailUrls.get(image.path);
       const isLoading = loadingPaths.has(image.path);
+      const tags = imageTags.get(image.id) || [];
 
       // Queue thumbnail loading (processed via effect after render)
       if (!thumbnailUrl && !isLoading && image.path && !pendingLoadsRef.current.has(image.path)) {
         pendingLoadsRef.current.add(image.path);
         // Trigger load processing after render completes
         requestAnimationFrame(() => setLoadTrigger(t => t + 1));
+      }
+
+      // Load tags for this image (uses ref to prevent loops)
+      if (image.id >= 0 && !imageTags.has(image.id) && !loadingTagsRef.current.has(image.id)) {
+        requestAnimationFrame(() => loadTagsForImage(image.id));
       }
 
       return (
@@ -185,6 +217,20 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
               lastClickRef.current = { id: image.id, time: now };
               onSelectImage(image.id, e.ctrlKey || e.metaKey);
             }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (onContextMenu) {
+                // If this image is not already selected, select it first
+                if (!isSelected) {
+                  onSelectImage(image.id, false);
+                }
+                // Pass either the selected images or just this one
+                const imageIds = isSelected && selectedIds.size > 0
+                  ? Array.from(selectedIds)
+                  : [image.id];
+                onContextMenu(e.clientX, e.clientY, imageIds);
+              }
+            }}
             role="option"
             aria-selected={isSelected}
             tabIndex={0}
@@ -210,6 +256,28 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
               </div>
             )}
 
+            {/* Tag badges */}
+            {tags.length > 0 && (
+              <div className="absolute top-1 left-1 flex gap-0.5 flex-wrap max-w-[calc(100%-8px)]">
+                {tags.slice(0, 3).map(tag => (
+                  <span
+                    key={tag.id}
+                    className="w-2.5 h-2.5 rounded-full shadow-sm"
+                    style={{ backgroundColor: tag.color }}
+                    title={tag.name}
+                  />
+                ))}
+                {tags.length > 3 && (
+                  <span
+                    className="text-[9px] text-white bg-black/60 px-1 rounded leading-tight"
+                    title={tags.slice(3).map(t => t.name).join(', ')}
+                  >
+                    +{tags.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Filename overlay */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
               <p className="text-white text-xs truncate">{image.filename}</p>
@@ -223,8 +291,11 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
     selectedIds,
     thumbnailUrls,
     loadingPaths,
+    imageTags,
+    loadTagsForImage,
     onSelectImage,
     onDoubleClickImage,
+    onContextMenu,
     gap
   ]);
 
