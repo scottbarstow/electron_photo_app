@@ -77,7 +77,8 @@ export class DirectoryService {
 
   private loadPersistedDirectory(): void {
     const savedPath = this.store.get('rootDirectory') as string | null;
-    if (savedPath && this.isValidDirectory(savedPath)) {
+    // Use isValidRootCandidate since we're restoring the root, not accessing within it
+    if (savedPath && this.isValidRootCandidate(savedPath)) {
       this.currentRootPath = savedPath;
       this.startWatching();
     }
@@ -98,6 +99,24 @@ export class DirectoryService {
       return isDir && hasAccess && isSafe;
     } catch (err) {
       console.log('isValidDirectory error for:', dirPath, err);
+      return false;
+    }
+  }
+
+  // Validate a directory for use as root (doesn't check against current root)
+  private isValidRootCandidate(dirPath: string): boolean {
+    try {
+      const stats = fs.statSync(dirPath);
+      const isDir = stats.isDirectory();
+      const hasAccess = this.hasReadAccess(dirPath);
+
+      if (!isDir || !hasAccess) {
+        console.log('isValidRootCandidate failed for:', dirPath, { isDir, hasAccess });
+      }
+
+      return isDir && hasAccess;
+    } catch (err) {
+      console.log('isValidRootCandidate error for:', dirPath, err);
       return false;
     }
   }
@@ -134,7 +153,9 @@ export class DirectoryService {
 
   // Root directory management
   setRootDirectory(dirPath: string): boolean {
-    if (!this.isValidDirectory(dirPath)) {
+    // Use isValidRootCandidate instead of isValidDirectory since we're setting
+    // a NEW root, not accessing a path within the existing root
+    if (!this.isValidRootCandidate(dirPath)) {
       return false;
     }
 

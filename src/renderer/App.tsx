@@ -206,16 +206,10 @@ export const App: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Validate directory
-      const validResponse = await window.electronAPI.directory.isValid(dirPath);
-      if (!validResponse.success || !validResponse.data) {
-        throw new Error('Selected directory is not valid or accessible');
-      }
-
-      // Set as root directory
+      // Set as root directory (this validates the directory internally)
       const setResponse = await window.electronAPI.directory.setRoot(dirPath);
       if (!setResponse.success) {
-        throw new Error(setResponse.error || 'Failed to set directory');
+        throw new Error(setResponse.error || 'Failed to set root directory');
       }
 
       setCurrentDirectory(setResponse.data);
