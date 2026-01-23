@@ -149,13 +149,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     canTrash: (filepath: string) => ipcRenderer.invoke('trash:canTrash', filepath),
     getFileInfo: (filepath: string) => ipcRenderer.invoke('trash:getFileInfo', filepath)
   },
-  
+
+  // Duplicate detection methods with progress events
+  duplicates: {
+    scan: (dirPath: string, recursive: boolean = false) =>
+      ipcRenderer.invoke('duplicates:scan', dirPath, recursive),
+    getStats: () => ipcRenderer.invoke('duplicates:getStats'),
+    onProgress: (callback: (progress: { phase: string; completed: number; total: number; currentFile?: string }) => void) => {
+      const listener = (_event: any, progress: any) => callback(progress);
+      ipcRenderer.on('duplicates:progress', listener);
+      return () => ipcRenderer.removeListener('duplicates:progress', listener);
+    }
+  },
+
   // Path utility methods
   path: {
     join: (...paths: string[]) => ipcRenderer.invoke('path:join', ...paths),
     basename: (filePath: string) => ipcRenderer.invoke('path:basename', filePath),
     dirname: (filePath: string) => ipcRenderer.invoke('path:dirname', filePath),
     extname: (filePath: string) => ipcRenderer.invoke('path:extname', filePath)
+  },
+
+  // Shell methods
+  shell: {
+    openInFinder: (folderPath: string) => ipcRenderer.invoke('shell:openInFinder', folderPath)
   }
 });
 

@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
 import { getDatabase } from './database';
 import { getDirectoryService } from './directory-service';
 import { getThumbnailService } from './thumbnail-service';
@@ -583,6 +583,65 @@ export function setupIpcHandlers(): void {
     });
   });
 
+  // Duplicate detection handlers with progress events
+  ipcMain.handle('duplicates:scan', async (event, dirPath: string, recursive: boolean = false) => {
+    if (!isFilePathAllowed(dirPath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      const hashService = getHashService();
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+
+      // Scan with progress callback
+      const duplicates = await hashService.scanDirectoryForDuplicates(
+        dirPath,
+        recursive,
+        (completed: number, total: number, currentFile?: string) => {
+          if (senderWindow && !senderWindow.isDestroyed()) {
+            senderWindow.webContents.send('duplicates:progress', {
+              phase: 'hashing',
+              completed,
+              total,
+              currentFile
+            });
+          }
+        }
+      );
+
+      // Calculate stats
+      const stats = hashService.calculateDuplicateSpace(duplicates);
+
+      return {
+        groups: duplicates,
+        totalWastedBytes: stats.totalWastedBytes,
+        totalDuplicateFiles: stats.totalDuplicateFiles,
+        totalGroups: stats.totalGroups
+      };
+    });
+  });
+
+  ipcMain.handle('duplicates:getStats', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      const groups = db.getAllDuplicateGroups();
+
+      let totalWastedBytes = 0;
+      let totalDuplicateFiles = 0;
+
+      for (const group of groups) {
+        // Each group has count files, wasted space is (count - 1) * filesize
+        totalWastedBytes += group.totalSize;
+        totalDuplicateFiles += group.count - 1;
+      }
+
+      return {
+        totalGroups: groups.length,
+        totalWastedBytes,
+        totalDuplicateFiles
+      };
+    });
+  });
+
   // Trash service handlers
   ipcMain.handle('trash:trashFile', async (event, filepath: string) => {
     if (!isFilePathAllowed(filepath)) {
@@ -797,6 +856,17 @@ export function setupIpcHandlers(): void {
   ipcMain.handle('path:extname', async (event, filePath: string) => {
     return handleAsyncIpc(async () => {
       return path.extname(filePath);
+    });
+  });
+
+  // Shell handlers
+  ipcMain.handle('shell:openInFinder', async (event, folderPath: string) => {
+    if (!isFilePathAllowed(folderPath)) {
+      return createResponse(false, undefined, 'Access denied: path outside root directory');
+    }
+    return handleAsyncIpc(async () => {
+      shell.showItemInFolder(folderPath);
+      return true;
     });
   });
 

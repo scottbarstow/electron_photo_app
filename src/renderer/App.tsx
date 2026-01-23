@@ -4,12 +4,31 @@ import { SplitPane } from './components/SplitPane';
 import { FolderTree, FolderNode } from './components/FolderTree';
 import { ThumbnailGrid, ImageItem } from './components/ThumbnailGrid';
 import { PhotoDetail } from './components/PhotoDetail';
+import { DuplicateReview } from './components/DuplicateReview';
 
 // Define the electronAPI interface for TypeScript
 interface IpcResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+interface ScanProgress {
+  phase: string;
+  completed: number;
+  total: number;
+  currentFile?: string;
+}
+
+interface ScanResult {
+  groups: Array<{
+    hash: string;
+    filesize: number;
+    files: string[];
+  }>;
+  totalWastedBytes: number;
+  totalDuplicateFiles: number;
+  totalGroups: number;
 }
 
 interface ElectronAPI {
@@ -40,6 +59,15 @@ interface ElectronAPI {
   };
   trash: {
     getFileInfo: (filepath: string) => Promise<IpcResponse<{ size: number; modified: number }>>;
+    trashFiles: (filepaths: string[]) => Promise<IpcResponse<{ successful: string[]; failed: any[] }>>;
+  };
+  duplicates: {
+    scan: (dirPath: string, recursive: boolean) => Promise<IpcResponse<ScanResult>>;
+    getStats: () => Promise<IpcResponse<{ totalGroups: number; totalWastedBytes: number; totalDuplicateFiles: number }>>;
+    onProgress: (callback: (progress: ScanProgress) => void) => () => void;
+  };
+  shell: {
+    openInFinder: (folderPath: string) => Promise<IpcResponse<boolean>>;
   };
 }
 
@@ -62,7 +90,7 @@ interface AppStats {
   lastScanTime?: number;
 }
 
-type AppView = 'setup' | 'browser';
+type AppView = 'setup' | 'browser' | 'duplicates';
 
 export const App: React.FC = () => {
   const [currentDirectory, setCurrentDirectory] = useState<DirectoryInfo | null>(null);
@@ -330,6 +358,14 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Refresh everything after files are deleted (stats + current folder images)
+  const handleRefreshAfterDelete = useCallback(async () => {
+    await loadStats();
+    if (selectedFolderPath) {
+      await loadImagesForFolder(selectedFolderPath);
+    }
+  }, [selectedFolderPath]);
+
   // Render setup view
   if (view === 'setup') {
     return (
@@ -370,6 +406,21 @@ export const App: React.FC = () => {
     );
   }
 
+  // Render duplicates view
+  if (view === 'duplicates') {
+    return (
+      <div className="h-screen flex flex-col bg-gray-100">
+        <DuplicateReview
+          rootPath={currentDirectory?.path || null}
+          currentFolderPath={selectedFolderPath}
+          onBack={() => setView('browser')}
+          onRefreshStats={handleRefreshAfterDelete}
+          onLoadThumbnail={handleLoadThumbnail}
+        />
+      </div>
+    );
+  }
+
   // Render browser view
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -393,6 +444,13 @@ export const App: React.FC = () => {
               </>
             )}
           </div>
+
+          <button
+            onClick={() => setView('duplicates')}
+            className="px-3 py-1.5 text-sm bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
+          >
+            Find Duplicates
+          </button>
 
           <button
             onClick={() => setView('setup')}
