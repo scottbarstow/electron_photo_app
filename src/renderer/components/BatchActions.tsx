@@ -95,6 +95,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
       for (const imageId of selectedIds) {
         await window.electronAPI.albums.addImage(album.id, imageId);
       }
+      onTagsChanged();
       setShowAlbumDropdown(false);
       setSearchQuery('');
     } catch (err) {
@@ -137,6 +138,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
         for (const imageId of selectedIds) {
           await window.electronAPI.albums.addImage(newAlbumId, imageId);
         }
+        onTagsChanged();
         setShowAlbumDropdown(false);
         setSearchQuery('');
       }
@@ -161,6 +163,7 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
   const exactAlbumMatch = allAlbums.find(a => a.name.toLowerCase() === searchQuery.toLowerCase());
   const showCreateTagOption = searchQuery.trim() && !exactTagMatch;
   const showCreateAlbumOption = searchQuery.trim() && !exactAlbumMatch;
+
 
   if (selectedIds.size < 2) return null;
 
@@ -305,7 +308,13 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
 
                     {showCreateAlbumOption && (
                       <button
-                        onClick={handleCreateAlbum}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreateAlbum();
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                        }}
                         disabled={isCreatingAlbum}
                         className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-blue-600 flex items-center gap-2 border-t border-gray-100"
                       >

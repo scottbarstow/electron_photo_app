@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FolderTree, FolderNode } from './FolderTree';
 import { Tag, Album } from '../App';
 import { TagManager } from './TagManager';
+import { AlbumManager } from './AlbumManager';
 
 interface SidebarProps {
   rootPath: string | null;
@@ -12,6 +13,8 @@ interface SidebarProps {
   onSelectAlbum: (album: Album | null) => void;
   selectedTagId: number | null;
   selectedAlbumId: number | null;
+  refreshTrigger?: number; // Increment to force refresh
+  onLoadThumbnail: (imagePath: string) => Promise<string>;
   className?: string;
 }
 
@@ -24,6 +27,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectAlbum,
   selectedTagId,
   selectedAlbumId,
+  refreshTrigger = 0,
+  onLoadThumbnail,
   className = ''
 }) => {
   const [tags, setTags] = useState<Tag[]>([]);
@@ -31,18 +36,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [albumsExpanded, setAlbumsExpanded] = useState(true);
   const [showTagManager, setShowTagManager] = useState(false);
+  const [showAlbumManager, setShowAlbumManager] = useState(false);
   const [tagImageCounts, setTagImageCounts] = useState<Map<number, number>>(new Map());
   const [albumImageCounts, setAlbumImageCounts] = useState<Map<number, number>>(new Map());
 
   const loadingRef = useRef(false);
 
-  // Load tags and albums
+  // Load tags and albums on mount and when refreshTrigger changes
   useEffect(() => {
-    loadTagsAndAlbums();
-  }, []);
+    // Force reload when refreshTrigger changes (not on initial mount)
+    loadTagsAndAlbums(refreshTrigger > 0);
+  }, [refreshTrigger]);
 
-  const loadTagsAndAlbums = async () => {
-    if (loadingRef.current) return;
+  const loadTagsAndAlbums = async (force = false) => {
+    if (loadingRef.current && !force) return;
     loadingRef.current = true;
 
     try {
@@ -91,9 +98,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (selectedTagId === tag.id) {
       onSelectTag(null);
     } else {
+      // App.tsx handleSelectTag already clears album selection
       onSelectTag(tag);
-      // Clear album selection when selecting tag
-      onSelectAlbum(null);
     }
   };
 
@@ -102,9 +108,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (selectedAlbumId === album.id) {
       onSelectAlbum(null);
     } else {
+      // App.tsx handleSelectAlbum already clears tag selection
       onSelectAlbum(album);
-      // Clear tag selection when selecting album
-      onSelectTag(null);
     }
   };
 
@@ -210,6 +215,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </svg>
             <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Albums</h2>
           </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAlbumManager(true);
+            }}
+            className="p-1 text-gray-400 hover:text-gray-600"
+            title="Manage Albums"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
         </div>
 
         {albumsExpanded && (
@@ -250,6 +270,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         isOpen={showTagManager}
         onClose={() => setShowTagManager(false)}
         onTagsChanged={handleTagsChanged}
+      />
+
+      {/* Album Manager Modal */}
+      <AlbumManager
+        isOpen={showAlbumManager}
+        onClose={() => setShowAlbumManager(false)}
+        onAlbumsChanged={handleTagsChanged}
+        onLoadThumbnail={onLoadThumbnail}
       />
     </div>
   );

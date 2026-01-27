@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "build:main": "tsc",
     "build:renderer": "vite build",
-    "start": "npm run build && electron dist/index.js",
+    "start": "npm run build && NODE_ENV=production electron dist/index.js",
     "dev": "concurrently \"tsc -w\" \"vite\" \"wait-on dist/index.js && wait-on http://localhost:5173 && electron dist/index.js\"",
     "dev:vite": "vite",
     "clean": "rm -rf dist"
