@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DirectorySelector } from './components/DirectorySelector';
 import { SplitPane } from './components/SplitPane';
-import { FolderTree, FolderNode } from './components/FolderTree';
+import { FolderNode } from './components/FolderTree';
+import { Sidebar } from './components/Sidebar';
 import { ThumbnailGrid, ImageItem } from './components/ThumbnailGrid';
 import { PhotoDetail } from './components/PhotoDetail';
 import { DuplicateReview } from './components/DuplicateReview';
+import { QuickTagMenu } from './components/QuickTagMenu';
+import { BatchActions } from './components/BatchActions';
+import { AlbumManager } from './components/AlbumManager';
 
 // Define the electronAPI interface for TypeScript
 interface IpcResponse<T = any> {
@@ -31,6 +35,38 @@ interface ScanResult {
   totalGroups: number;
 }
 
+// Tag and Album types
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  created?: number;
+}
+
+export interface Album {
+  id: number;
+  name: string;
+  description?: string;
+  coverImageId?: number;
+  created?: number;
+  updated?: number;
+}
+
+export interface ImageRecord {
+  id: number;
+  path: string;
+  filename: string;
+  directory?: string;
+  size?: number;
+  modified?: number;
+  hash?: string;
+  width?: number;
+  height?: number;
+  dateTaken?: number;
+  cameraMake?: string;
+  cameraModel?: string;
+}
+
 interface ElectronAPI {
   openDirectory: () => Promise<IpcResponse<string>>;
   directory: {
@@ -50,6 +86,8 @@ interface ElectronAPI {
     getImageCount: () => Promise<IpcResponse<number>>;
     getDuplicateCount: () => Promise<IpcResponse<number>>;
     getImagesByDirectory: (directory: string) => Promise<IpcResponse<any[]>>;
+    getImageByPath: (path: string) => Promise<IpcResponse<ImageRecord | null>>;
+    insertImage: (image: { path: string; filename: string; directory: string; size: number; modified: number }) => Promise<IpcResponse<number>>;
   };
   thumbnail: {
     getAsDataUrl: (imagePath: string) => Promise<IpcResponse<string>>;
@@ -68,6 +106,30 @@ interface ElectronAPI {
   };
   shell: {
     openInFinder: (folderPath: string) => Promise<IpcResponse<boolean>>;
+  };
+  tags: {
+    create: (name: string, color?: string) => Promise<IpcResponse<number>>;
+    get: (id: number) => Promise<IpcResponse<Tag>>;
+    getByName: (name: string) => Promise<IpcResponse<Tag>>;
+    getAll: () => Promise<IpcResponse<Tag[]>>;
+    update: (id: number, updates: { name?: string; color?: string }) => Promise<IpcResponse<void>>;
+    delete: (id: number) => Promise<IpcResponse<void>>;
+    addToImage: (imageId: number, tagId: number) => Promise<IpcResponse<void>>;
+    removeFromImage: (imageId: number, tagId: number) => Promise<IpcResponse<void>>;
+    getForImage: (imageId: number) => Promise<IpcResponse<Tag[]>>;
+    getImages: (tagId: number) => Promise<IpcResponse<ImageRecord[]>>;
+  };
+  albums: {
+    create: (name: string, description?: string) => Promise<IpcResponse<number>>;
+    get: (id: number) => Promise<IpcResponse<Album>>;
+    getAll: () => Promise<IpcResponse<Album[]>>;
+    update: (id: number, updates: { name?: string; description?: string; coverImageId?: number }) => Promise<IpcResponse<void>>;
+    delete: (id: number) => Promise<IpcResponse<void>>;
+    addImage: (albumId: number, imageId: number, position?: number) => Promise<IpcResponse<void>>;
+    removeImage: (albumId: number, imageId: number) => Promise<IpcResponse<void>>;
+    getImages: (albumId: number) => Promise<IpcResponse<ImageRecord[]>>;
+    getForImage: (imageId: number) => Promise<IpcResponse<Album[]>>;
+    reorderImages: (albumId: number, imageIds: number[]) => Promise<IpcResponse<void>>;
   };
 }
 
@@ -105,6 +167,23 @@ export const App: React.FC = () => {
   const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
   const [detailImagePath, setDetailImagePath] = useState<string | null>(null);
 
+  // Quick tag menu state
+  const [quickTagMenu, setQuickTagMenu] = useState<{
+    x: number;
+    y: number;
+    imageIds: number[];
+  } | null>(null);
+
+  // Manager modals state
+  const [showAlbumManager, setShowAlbumManager] = useState(false);
+
+  // Tag/Album filtering state
+  const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+
+  // Sidebar refresh trigger - increment to force sidebar to reload tags/albums
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+
   // Load initial directory and stats on component mount
   useEffect(() => {
     loadInitialData();
@@ -121,11 +200,11 @@ export const App: React.FC = () => {
     }
   }, [currentDirectory]);
 
-  // Load images when folder selection changes
+  // Load images when folder selection changes (tag/album handled in their handlers)
   useEffect(() => {
-    if (selectedFolderPath) {
+    if (!selectedTag && !selectedAlbum && selectedFolderPath) {
       loadImagesForFolder(selectedFolderPath);
-    } else {
+    } else if (!selectedTag && !selectedAlbum && !selectedFolderPath) {
       setImages([]);
     }
   }, [selectedFolderPath]);
@@ -191,40 +270,101 @@ export const App: React.FC = () => {
 
   const loadImagesForFolder = async (folderPath: string) => {
     try {
-      console.log('Loading images for folder:', folderPath);
-
       // First try to get from database
       const dbResponse = await window.electronAPI.database.getImagesByDirectory(folderPath);
-      console.log('Database response:', dbResponse);
 
       if (dbResponse.success && dbResponse.data && dbResponse.data.length > 0) {
-        console.log('Found', dbResponse.data.length, 'images in database');
         setImages(dbResponse.data.map(img => ({
           id: img.id,
           path: img.path,
           filename: img.filename
         })));
       } else {
-        // Fall back to directory contents
-        console.log('Falling back to directory contents');
+        // Fall back to directory contents - but insert images into database first
         const contentsResponse = await window.electronAPI.directory.getContents(folderPath);
-        console.log('Directory contents response:', contentsResponse);
 
         if (contentsResponse.success && contentsResponse.data) {
           const imageFiles = contentsResponse.data.filter(file => file.isImage);
-          console.log('Found', imageFiles.length, 'image files in directory');
-          setImages(imageFiles.map((file, index) => ({
-            id: index,
-            path: file.path,
-            filename: file.name
-          })));
+
+          // Insert images into database to get real IDs
+          const imagesWithRealIds: { id: number; path: string; filename: string }[] = [];
+
+          for (const file of imageFiles) {
+            // Check if image already exists in database
+            const existingResponse = await window.electronAPI.database.getImageByPath(file.path);
+
+            if (existingResponse.success && existingResponse.data) {
+              // Image exists, use its real ID
+              imagesWithRealIds.push({
+                id: existingResponse.data.id,
+                path: existingResponse.data.path,
+                filename: existingResponse.data.filename
+              });
+            } else {
+              // Image doesn't exist, insert it using info from directory contents
+              const insertResponse = await window.electronAPI.database.insertImage({
+                path: file.path,
+                filename: file.name,
+                directory: folderPath,
+                size: file.size || 0,
+                modified: file.modified || Date.now()
+              });
+
+              if (insertResponse.success && insertResponse.data) {
+                imagesWithRealIds.push({
+                  id: insertResponse.data,
+                  path: file.path,
+                  filename: file.name
+                });
+              } else {
+                console.error('Failed to insert image:', file.path, insertResponse.error);
+              }
+            }
+          }
+
+          setImages(imagesWithRealIds);
         } else {
-          console.log('Failed to get directory contents:', contentsResponse.error);
           setImages([]);
         }
       }
     } catch (err) {
       console.error('Failed to load images:', err);
+      setImages([]);
+    }
+  };
+
+  const loadImagesForTag = async (tagId: number) => {
+    try {
+      const response = await window.electronAPI.tags.getImages(tagId);
+      if (response.success && response.data) {
+        setImages(response.data.map(img => ({
+          id: img.id,
+          path: img.path,
+          filename: img.filename
+        })));
+      } else {
+        setImages([]);
+      }
+    } catch (err) {
+      console.error('Failed to load images for tag:', err);
+      setImages([]);
+    }
+  };
+
+  const loadImagesForAlbum = async (albumId: number) => {
+    try {
+      const response = await window.electronAPI.albums.getImages(albumId);
+      if (response.success && response.data) {
+        setImages(response.data.map(img => ({
+          id: img.id,
+          path: img.path,
+          filename: img.filename
+        })));
+      } else {
+        setImages([]);
+      }
+    } catch (err) {
+      console.error('Failed to load images for album:', err);
       setImages([]);
     }
   };
@@ -243,10 +383,7 @@ export const App: React.FC = () => {
       setCurrentDirectory(setResponse.data);
 
       // Start initial scan
-      const scanResponse = await window.electronAPI.directory.scan();
-      if (scanResponse.success) {
-        console.log('Directory scan completed:', scanResponse.data);
-      }
+      await window.electronAPI.directory.scan();
 
       // Refresh stats
       await loadStats();
@@ -284,7 +421,11 @@ export const App: React.FC = () => {
 
   const handleSelectFolder = useCallback((path: string) => {
     setSelectedFolderPath(path);
+    setSelectedTag(null);
+    setSelectedAlbum(null);
     setSelectedImageIds(new Set());
+    // Load images directly
+    loadImagesForFolder(path);
   }, []);
 
   const handleLoadFolderChildren = useCallback(async (path: string): Promise<FolderNode[]> => {
@@ -363,6 +504,60 @@ export const App: React.FC = () => {
     await loadStats();
     if (selectedFolderPath) {
       await loadImagesForFolder(selectedFolderPath);
+    }
+  }, [selectedFolderPath]);
+
+  // Handle context menu (right-click) on thumbnails
+  const handleContextMenu = useCallback((x: number, y: number, imageIds: number[]) => {
+    setQuickTagMenu({ x, y, imageIds });
+  }, []);
+
+  // Handle tags/albums changed - refresh sidebar and reload images
+  const handleTagsAlbumsChanged = useCallback(() => {
+    // Trigger sidebar refresh
+    setSidebarRefreshTrigger(prev => prev + 1);
+    // Force re-render of thumbnail grid to show updated tags
+    if (selectedTag) {
+      loadImagesForTag(selectedTag.id);
+    } else if (selectedAlbum) {
+      loadImagesForAlbum(selectedAlbum.id);
+    } else if (selectedFolderPath) {
+      loadImagesForFolder(selectedFolderPath);
+    }
+  }, [selectedFolderPath, selectedTag, selectedAlbum]);
+
+  // Clear all selected images
+  const handleClearSelection = useCallback(() => {
+    setSelectedImageIds(new Set());
+  }, []);
+
+  // Handle tag selection for filtering
+  const handleSelectTag = useCallback((tag: Tag | null) => {
+    setSelectedTag(tag);
+    setSelectedAlbum(null);
+    setSelectedImageIds(new Set());
+    // Load images directly instead of relying on useEffect
+    if (tag) {
+      loadImagesForTag(tag.id);
+    } else if (selectedFolderPath) {
+      loadImagesForFolder(selectedFolderPath);
+    } else {
+      setImages([]);
+    }
+  }, [selectedFolderPath]);
+
+  // Handle album selection for filtering
+  const handleSelectAlbum = useCallback((album: Album | null) => {
+    setSelectedAlbum(album);
+    setSelectedTag(null);
+    setSelectedImageIds(new Set());
+    // Load images directly instead of relying on useEffect
+    if (album) {
+      loadImagesForAlbum(album.id);
+    } else if (selectedFolderPath) {
+      loadImagesForFolder(selectedFolderPath);
+    } else {
+      setImages([]);
     }
   }, [selectedFolderPath]);
 
@@ -446,6 +641,13 @@ export const App: React.FC = () => {
           </div>
 
           <button
+            onClick={() => setShowAlbumManager(true)}
+            className="px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+          >
+            Albums
+          </button>
+
+          <button
             onClick={() => setView('duplicates')}
             className="px-3 py-1.5 text-sm bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
           >
@@ -473,11 +675,17 @@ export const App: React.FC = () => {
       <main className="flex-1 overflow-hidden">
         <SplitPane
           leftPanel={
-            <FolderTree
+            <Sidebar
               rootPath={currentDirectory?.path || null}
-              selectedPath={selectedFolderPath}
+              selectedFolderPath={selectedFolderPath}
               onSelectFolder={handleSelectFolder}
-              onLoadChildren={handleLoadFolderChildren}
+              onLoadFolderChildren={handleLoadFolderChildren}
+              onSelectTag={handleSelectTag}
+              onSelectAlbum={handleSelectAlbum}
+              selectedTagId={selectedTag?.id || null}
+              selectedAlbumId={selectedAlbum?.id || null}
+              refreshTrigger={sidebarRefreshTrigger}
+              onLoadThumbnail={handleLoadThumbnail}
               className="h-full"
             />
           }
@@ -486,33 +694,78 @@ export const App: React.FC = () => {
               {/* Toolbar */}
               <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  {selectedFolderPath ? (
+                  {selectedTag ? (
+                    <>
+                      <span
+                        className="w-3 h-3 rounded-full inline-block mr-1"
+                        style={{ backgroundColor: selectedTag.color }}
+                      />
+                      <span className="font-medium">{selectedTag.name}</span>
+                      <span className="mx-1">-</span>
+                      <span>{images.length}</span> images
+                      {selectedImageIds.size > 0 && selectedImageIds.size < 2 && (
+                        <span className="ml-2 text-blue-600">
+                          ({selectedImageIds.size} selected)
+                        </span>
+                      )}
+                    </>
+                  ) : selectedAlbum ? (
+                    <>
+                      <span className="font-medium">{selectedAlbum.name}</span>
+                      <span className="mx-1">-</span>
+                      <span>{images.length}</span> images
+                      {selectedImageIds.size > 0 && selectedImageIds.size < 2 && (
+                        <span className="ml-2 text-blue-600">
+                          ({selectedImageIds.size} selected)
+                        </span>
+                      )}
+                    </>
+                  ) : selectedFolderPath ? (
                     <>
                       <span className="font-medium">{images.length}</span> images
-                      {selectedImageIds.size > 0 && (
+                      {selectedImageIds.size > 0 && selectedImageIds.size < 2 && (
                         <span className="ml-2 text-blue-600">
                           ({selectedImageIds.size} selected)
                         </span>
                       )}
                     </>
                   ) : (
-                    'Select a folder'
+                    'Select a folder, tag, or album'
                   )}
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* TODO: Add view mode toggle, sort options */}
+                  {/* Clear filter button when tag or album selected */}
+                  {(selectedTag || selectedAlbum) && (
+                    <button
+                      onClick={() => {
+                        setSelectedTag(null);
+                        setSelectedAlbum(null);
+                      }}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
                 </div>
               </div>
 
+              {/* Batch Actions Toolbar */}
+              <BatchActions
+                selectedIds={selectedImageIds}
+                onClearSelection={handleClearSelection}
+                onTagsChanged={handleTagsAlbumsChanged}
+              />
+
               {/* Thumbnail Grid */}
-              <div className="h-[calc(100%-48px)] w-full">
+              <div className={`w-full ${selectedImageIds.size >= 2 ? 'h-[calc(100%-88px)]' : 'h-[calc(100%-48px)]'}`}>
                 <ThumbnailGrid
                   images={images}
                   selectedIds={selectedImageIds}
                   onSelectImage={handleSelectImage}
                   onDoubleClickImage={handleDoubleClickImage}
                   onLoadThumbnail={handleLoadThumbnail}
+                  onContextMenu={handleContextMenu}
                 />
               </div>
             </div>
@@ -538,8 +791,28 @@ export const App: React.FC = () => {
           allImages={images}
           onClose={handleCloseDetail}
           onNavigate={handleNavigateDetail}
+          onTagsChanged={handleTagsAlbumsChanged}
         />
       )}
+
+      {/* Quick Tag Menu (context menu) */}
+      {quickTagMenu && (
+        <QuickTagMenu
+          x={quickTagMenu.x}
+          y={quickTagMenu.y}
+          imageIds={quickTagMenu.imageIds}
+          onClose={() => setQuickTagMenu(null)}
+          onTagsChanged={handleTagsAlbumsChanged}
+        />
+      )}
+
+      {/* Album Manager Modal */}
+      <AlbumManager
+        isOpen={showAlbumManager}
+        onClose={() => setShowAlbumManager(false)}
+        onAlbumsChanged={handleTagsAlbumsChanged}
+        onLoadThumbnail={handleLoadThumbnail}
+      />
     </div>
   );
 };
