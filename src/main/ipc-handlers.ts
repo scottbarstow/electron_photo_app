@@ -70,6 +70,77 @@ function areFilePathsAllowed(filepaths: string[]): boolean {
   return filepaths.every(fp => isFilePathAllowed(fp));
 }
 
+// Input validation helpers
+const MAX_NAME_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 500;
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+function validateTagName(name: unknown): ValidationResult {
+  if (typeof name !== 'string') {
+    return { valid: false, error: 'Tag name must be a string' };
+  }
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Tag name cannot be empty' };
+  }
+  if (trimmed.length > MAX_NAME_LENGTH) {
+    return { valid: false, error: `Tag name cannot exceed ${MAX_NAME_LENGTH} characters` };
+  }
+  return { valid: true };
+}
+
+function validateColor(color: unknown): ValidationResult {
+  if (color === undefined || color === null) {
+    return { valid: true }; // Color is optional
+  }
+  if (typeof color !== 'string') {
+    return { valid: false, error: 'Color must be a string' };
+  }
+  if (!HEX_COLOR_REGEX.test(color)) {
+    return { valid: false, error: 'Color must be a valid hex color (e.g., #FF5733)' };
+  }
+  return { valid: true };
+}
+
+function validateAlbumName(name: unknown): ValidationResult {
+  if (typeof name !== 'string') {
+    return { valid: false, error: 'Album name must be a string' };
+  }
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Album name cannot be empty' };
+  }
+  if (trimmed.length > MAX_NAME_LENGTH) {
+    return { valid: false, error: `Album name cannot exceed ${MAX_NAME_LENGTH} characters` };
+  }
+  return { valid: true };
+}
+
+function validateDescription(description: unknown): ValidationResult {
+  if (description === undefined || description === null) {
+    return { valid: true }; // Description is optional
+  }
+  if (typeof description !== 'string') {
+    return { valid: false, error: 'Description must be a string' };
+  }
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return { valid: false, error: `Description cannot exceed ${MAX_DESCRIPTION_LENGTH} characters` };
+  }
+  return { valid: true };
+}
+
+function validateId(id: unknown, fieldName: string): ValidationResult {
+  if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) {
+    return { valid: false, error: `${fieldName} must be a non-negative integer` };
+  }
+  return { valid: true };
+}
+
 export function setupIpcHandlers(): void {
   // Dialog handlers
   ipcMain.handle('dialog:openFile', async () => {
@@ -685,9 +756,19 @@ export function setupIpcHandlers(): void {
 
   // Tag handlers
   ipcMain.handle('tags:create', async (event, name: string, color?: string) => {
+    // Validate inputs
+    const nameValidation = validateTagName(name);
+    if (!nameValidation.valid) {
+      return createResponse(false, undefined, nameValidation.error);
+    }
+    const colorValidation = validateColor(color);
+    if (!colorValidation.valid) {
+      return createResponse(false, undefined, colorValidation.error);
+    }
+
     return handleAsyncIpc(async () => {
       const db = getDatabase();
-      return db.createTag(name, color);
+      return db.createTag(name.trim(), color);
     });
   });
 
@@ -712,7 +793,35 @@ export function setupIpcHandlers(): void {
     });
   });
 
+  ipcMain.handle('tags:getAllWithCounts', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAllTagsWithCounts();
+    });
+  });
+
   ipcMain.handle('tags:update', async (event, id: number, updates: { name?: string; color?: string }) => {
+    // Validate id
+    const idValidation = validateId(id, 'Tag ID');
+    if (!idValidation.valid) {
+      return createResponse(false, undefined, idValidation.error);
+    }
+    // Validate name if provided
+    if (updates.name !== undefined) {
+      const nameValidation = validateTagName(updates.name);
+      if (!nameValidation.valid) {
+        return createResponse(false, undefined, nameValidation.error);
+      }
+      updates.name = updates.name.trim();
+    }
+    // Validate color if provided
+    if (updates.color !== undefined) {
+      const colorValidation = validateColor(updates.color);
+      if (!colorValidation.valid) {
+        return createResponse(false, undefined, colorValidation.error);
+      }
+    }
+
     return handleAsyncIpc(async () => {
       const db = getDatabase();
       db.updateTag(id, updates);
@@ -760,9 +869,19 @@ export function setupIpcHandlers(): void {
 
   // Album handlers
   ipcMain.handle('albums:create', async (event, name: string, description?: string) => {
+    // Validate inputs
+    const nameValidation = validateAlbumName(name);
+    if (!nameValidation.valid) {
+      return createResponse(false, undefined, nameValidation.error);
+    }
+    const descValidation = validateDescription(description);
+    if (!descValidation.valid) {
+      return createResponse(false, undefined, descValidation.error);
+    }
+
     return handleAsyncIpc(async () => {
       const db = getDatabase();
-      return db.createAlbum(name, description);
+      return db.createAlbum(name.trim(), description?.trim());
     });
   });
 
@@ -780,7 +899,43 @@ export function setupIpcHandlers(): void {
     });
   });
 
+  ipcMain.handle('albums:getAllWithCounts', async () => {
+    return handleAsyncIpc(async () => {
+      const db = getDatabase();
+      return db.getAllAlbumsWithCounts();
+    });
+  });
+
   ipcMain.handle('albums:update', async (event, id: number, updates: { name?: string; description?: string; coverImageId?: number }) => {
+    // Validate id
+    const idValidation = validateId(id, 'Album ID');
+    if (!idValidation.valid) {
+      return createResponse(false, undefined, idValidation.error);
+    }
+    // Validate name if provided
+    if (updates.name !== undefined) {
+      const nameValidation = validateAlbumName(updates.name);
+      if (!nameValidation.valid) {
+        return createResponse(false, undefined, nameValidation.error);
+      }
+      updates.name = updates.name.trim();
+    }
+    // Validate description if provided
+    if (updates.description !== undefined) {
+      const descValidation = validateDescription(updates.description);
+      if (!descValidation.valid) {
+        return createResponse(false, undefined, descValidation.error);
+      }
+      updates.description = updates.description.trim();
+    }
+    // Validate coverImageId if provided
+    if (updates.coverImageId !== undefined && updates.coverImageId !== null) {
+      const coverIdValidation = validateId(updates.coverImageId, 'Cover image ID');
+      if (!coverIdValidation.valid) {
+        return createResponse(false, undefined, coverIdValidation.error);
+      }
+    }
+
     return handleAsyncIpc(async () => {
       const db = getDatabase();
       db.updateAlbum(id, updates);

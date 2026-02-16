@@ -77,10 +77,12 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
 
   const handleAddTag = async (tag: Tag) => {
     try {
-      // Add tag to all selected images
-      for (const imageId of selectedIds) {
-        await window.electronAPI.tags.addToImage(imageId, tag.id);
-      }
+      // Add tag to all selected images in parallel
+      await Promise.all(
+        Array.from(selectedIds).map(imageId =>
+          window.electronAPI.tags.addToImage(imageId, tag.id)
+        )
+      );
       onTagsChanged();
       setShowTagDropdown(false);
       setSearchQuery('');
@@ -91,10 +93,12 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
 
   const handleAddToAlbum = async (album: Album) => {
     try {
-      // Add all selected images to album
-      for (const imageId of selectedIds) {
-        await window.electronAPI.albums.addImage(album.id, imageId);
-      }
+      // Add all selected images to album in parallel
+      await Promise.all(
+        Array.from(selectedIds).map(imageId =>
+          window.electronAPI.albums.addImage(album.id, imageId)
+        )
+      );
       onTagsChanged();
       setShowAlbumDropdown(false);
       setSearchQuery('');
@@ -111,10 +115,12 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
       const createResponse = await window.electronAPI.tags.create(searchQuery.trim());
       if (createResponse.success && createResponse.data) {
         const newTagId = createResponse.data;
-        // Add to all selected images
-        for (const imageId of selectedIds) {
-          await window.electronAPI.tags.addToImage(imageId, newTagId);
-        }
+        // Add to all selected images in parallel
+        await Promise.all(
+          Array.from(selectedIds).map(imageId =>
+            window.electronAPI.tags.addToImage(imageId, newTagId)
+          )
+        );
         onTagsChanged();
         setShowTagDropdown(false);
         setSearchQuery('');
@@ -134,10 +140,12 @@ export const BatchActions: React.FC<BatchActionsProps> = ({
       const createResponse = await window.electronAPI.albums.create(searchQuery.trim());
       if (createResponse.success && createResponse.data) {
         const newAlbumId = createResponse.data;
-        // Add all selected images to the new album
-        for (const imageId of selectedIds) {
-          await window.electronAPI.albums.addImage(newAlbumId, imageId);
-        }
+        // Add all selected images to the new album in parallel
+        await Promise.all(
+          Array.from(selectedIds).map(imageId =>
+            window.electronAPI.albums.addImage(newAlbumId, imageId)
+          )
+        );
         onTagsChanged();
         setShowAlbumDropdown(false);
         setSearchQuery('');

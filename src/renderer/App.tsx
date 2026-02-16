@@ -112,6 +112,7 @@ interface ElectronAPI {
     get: (id: number) => Promise<IpcResponse<Tag>>;
     getByName: (name: string) => Promise<IpcResponse<Tag>>;
     getAll: () => Promise<IpcResponse<Tag[]>>;
+    getAllWithCounts: () => Promise<IpcResponse<Array<Tag & { imageCount: number }>>>;
     update: (id: number, updates: { name?: string; color?: string }) => Promise<IpcResponse<void>>;
     delete: (id: number) => Promise<IpcResponse<void>>;
     addToImage: (imageId: number, tagId: number) => Promise<IpcResponse<void>>;
@@ -123,6 +124,7 @@ interface ElectronAPI {
     create: (name: string, description?: string) => Promise<IpcResponse<number>>;
     get: (id: number) => Promise<IpcResponse<Album>>;
     getAll: () => Promise<IpcResponse<Album[]>>;
+    getAllWithCounts: () => Promise<IpcResponse<Array<Album & { imageCount: number }>>>;
     update: (id: number, updates: { name?: string; description?: string; coverImageId?: number }) => Promise<IpcResponse<void>>;
     delete: (id: number) => Promise<IpcResponse<void>>;
     addImage: (albumId: number, imageId: number, position?: number) => Promise<IpcResponse<void>>;
@@ -268,7 +270,7 @@ export const App: React.FC = () => {
     });
   };
 
-  const loadImagesForFolder = async (folderPath: string) => {
+  const loadImagesForFolder = useCallback(async (folderPath: string) => {
     try {
       // First try to get from database
       const dbResponse = await window.electronAPI.database.getImagesByDirectory(folderPath);
@@ -331,9 +333,9 @@ export const App: React.FC = () => {
       console.error('Failed to load images:', err);
       setImages([]);
     }
-  };
+  }, []);
 
-  const loadImagesForTag = async (tagId: number) => {
+  const loadImagesForTag = useCallback(async (tagId: number) => {
     try {
       const response = await window.electronAPI.tags.getImages(tagId);
       if (response.success && response.data) {
@@ -349,9 +351,9 @@ export const App: React.FC = () => {
       console.error('Failed to load images for tag:', err);
       setImages([]);
     }
-  };
+  }, []);
 
-  const loadImagesForAlbum = async (albumId: number) => {
+  const loadImagesForAlbum = useCallback(async (albumId: number) => {
     try {
       const response = await window.electronAPI.albums.getImages(albumId);
       if (response.success && response.data) {
@@ -367,7 +369,7 @@ export const App: React.FC = () => {
       console.error('Failed to load images for album:', err);
       setImages([]);
     }
-  };
+  }, []);
 
   const handleDirectorySelected = async (dirPath: string) => {
     try {
@@ -426,7 +428,7 @@ export const App: React.FC = () => {
     setSelectedImageIds(new Set());
     // Load images directly
     loadImagesForFolder(path);
-  }, []);
+  }, [loadImagesForFolder]);
 
   const handleLoadFolderChildren = useCallback(async (path: string): Promise<FolderNode[]> => {
     try {
@@ -505,7 +507,7 @@ export const App: React.FC = () => {
     if (selectedFolderPath) {
       await loadImagesForFolder(selectedFolderPath);
     }
-  }, [selectedFolderPath]);
+  }, [selectedFolderPath, loadImagesForFolder]);
 
   // Handle context menu (right-click) on thumbnails
   const handleContextMenu = useCallback((x: number, y: number, imageIds: number[]) => {
@@ -524,7 +526,7 @@ export const App: React.FC = () => {
     } else if (selectedFolderPath) {
       loadImagesForFolder(selectedFolderPath);
     }
-  }, [selectedFolderPath, selectedTag, selectedAlbum]);
+  }, [selectedFolderPath, selectedTag, selectedAlbum, loadImagesForTag, loadImagesForAlbum, loadImagesForFolder]);
 
   // Clear all selected images
   const handleClearSelection = useCallback(() => {
@@ -544,7 +546,7 @@ export const App: React.FC = () => {
     } else {
       setImages([]);
     }
-  }, [selectedFolderPath]);
+  }, [selectedFolderPath, loadImagesForTag, loadImagesForFolder]);
 
   // Handle album selection for filtering
   const handleSelectAlbum = useCallback((album: Album | null) => {
@@ -559,7 +561,7 @@ export const App: React.FC = () => {
     } else {
       setImages([]);
     }
-  }, [selectedFolderPath]);
+  }, [selectedFolderPath, loadImagesForAlbum, loadImagesForFolder]);
 
   // Render setup view
   if (view === 'setup') {

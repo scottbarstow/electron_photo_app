@@ -53,32 +53,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     loadingRef.current = true;
 
     try {
-      // Load tags
-      const tagsResponse = await window.electronAPI.tags.getAll();
+      // Load tags with counts in a single query (avoids N+1)
+      const tagsResponse = await window.electronAPI.tags.getAllWithCounts();
       if (tagsResponse.success && tagsResponse.data) {
         setTags(tagsResponse.data);
-        // Load image counts for tags
         const counts = new Map<number, number>();
         for (const tag of tagsResponse.data) {
-          const imagesResponse = await window.electronAPI.tags.getImages(tag.id);
-          if (imagesResponse.success && imagesResponse.data) {
-            counts.set(tag.id, imagesResponse.data.length);
-          }
+          counts.set(tag.id, tag.imageCount);
         }
         setTagImageCounts(counts);
       }
 
-      // Load albums
-      const albumsResponse = await window.electronAPI.albums.getAll();
+      // Load albums with counts in a single query (avoids N+1)
+      const albumsResponse = await window.electronAPI.albums.getAllWithCounts();
       if (albumsResponse.success && albumsResponse.data) {
         setAlbums(albumsResponse.data);
-        // Load image counts for albums
         const counts = new Map<number, number>();
         for (const album of albumsResponse.data) {
-          const imagesResponse = await window.electronAPI.albums.getImages(album.id);
-          if (imagesResponse.success && imagesResponse.data) {
-            counts.set(album.id, imagesResponse.data.length);
-          }
+          counts.set(album.id, album.imageCount);
         }
         setAlbumImageCounts(counts);
       }

@@ -45,6 +45,31 @@ export const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({
   const [imageTags, setImageTags] = useState<Map<number, Tag[]>>(new Map());
   const loadingTagsRef = useRef<Set<number>>(new Set());
 
+  // Track previous images to detect folder changes and clear caches
+  const prevImagesRef = useRef<ImageItem[]>([]);
+
+  // Clear caches when images change (folder/tag/album selection changed)
+  useEffect(() => {
+    const prevPaths = new Set(prevImagesRef.current.map(img => img.path));
+    const currentPaths = new Set(images.map(img => img.path));
+
+    // Check if this is a significant change (not just a minor update)
+    const hasSignificantChange = prevImagesRef.current.length === 0 ||
+      images.length === 0 ||
+      !images.some(img => prevPaths.has(img.path));
+
+    if (hasSignificantChange && prevImagesRef.current.length > 0) {
+      // Clear caches on folder change to prevent memory leak
+      setThumbnailUrls(new Map());
+      setLoadingPaths(new Set());
+      setImageTags(new Map());
+      loadingTagsRef.current.clear();
+      pendingLoadsRef.current.clear();
+    }
+
+    prevImagesRef.current = images;
+  }, [images]);
+
   // Calculate grid dimensions
   const cellSize = thumbnailSize + gap;
   const columnCount = Math.max(1, Math.floor((containerWidth - gap) / cellSize));

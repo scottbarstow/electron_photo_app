@@ -544,6 +544,24 @@ export class PhotoDatabase {
     }));
   }
 
+  getAllTagsWithCounts(): Array<Tag & { imageCount: number }> {
+    const stmt = this.db.prepare(`
+      SELECT t.*, COUNT(it.image_id) as image_count
+      FROM tags t
+      LEFT JOIN image_tags it ON t.id = it.tag_id
+      GROUP BY t.id
+      ORDER BY t.name
+    `);
+    const rows = stmt.all() as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      color: row.color,
+      created: row.created,
+      imageCount: row.image_count
+    }));
+  }
+
   updateTag(id: number, updates: Partial<Tag>): void {
     const fields: string[] = [];
     const values: any[] = [];
@@ -641,6 +659,26 @@ export class PhotoDatabase {
       coverImageId: row.cover_image_id,
       created: row.created,
       updated: row.updated
+    }));
+  }
+
+  getAllAlbumsWithCounts(): Array<Album & { imageCount: number }> {
+    const stmt = this.db.prepare(`
+      SELECT a.*, COUNT(ai.image_id) as image_count
+      FROM albums a
+      LEFT JOIN album_images ai ON a.id = ai.album_id
+      GROUP BY a.id
+      ORDER BY a.name
+    `);
+    const rows = stmt.all() as any[];
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      coverImageId: row.cover_image_id,
+      created: row.created,
+      updated: row.updated,
+      imageCount: row.image_count
     }));
   }
 
